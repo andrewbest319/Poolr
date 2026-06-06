@@ -11,10 +11,8 @@ import {
   type SelectHTMLAttributes,
 } from "react";
 import { supabase } from "../../lib/supabase";
-
 type DraftFormat = "salary_cap" | "tiered_draft";
 type PurchaseType = "free_first_pool" | "single_pool" | "monthly" | "annual";
-type StepKey = "tournament" | "setup" | "unlock";
 
 type Tournament = {
   id: string;
@@ -62,7 +60,7 @@ type CreatedPool = {
 };
 
 const ROSTER_OPTIONS = [4, 6, 8, 10] as const;
-const CREATE_POOL_PATH = "/create-pool";
+const CREATE_POOL_PATH = "/pools/create";
 
 function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
@@ -144,16 +142,6 @@ function formatTournamentMeta(tournament: Tournament) {
   return parts.join(" • ");
 }
 
-function formatTournamentDates(tournament: Tournament | null) {
-  if (!tournament) return "Select a tournament";
-
-  const start = formatDate(tournament.start_date || tournament.lock_time);
-  const end = formatDate(tournament.end_date);
-
-  if (start && end && start !== end) return `${start} – ${end}`;
-  return start || "Dates coming soon";
-}
-
 function getTournamentSortTime(tournament: Tournament) {
   const value = tournament.start_date || tournament.lock_time || "9999-12-31";
   const parsed = new Date(value);
@@ -177,8 +165,7 @@ function sortTournaments(a: Tournament, b: Tournament) {
   return getTournamentSortTime(a) - getTournamentSortTime(b);
 }
 
-function getTournamentLabel(tournament: Tournament | null) {
-  if (!tournament) return "Tournament";
+function getTournamentLabel(tournament: Tournament) {
   if (tournament.feature_label) return tournament.feature_label;
   if (tournament.is_major) return "Major Championship";
   if (tournament.is_signature) return "Signature Event";
@@ -191,7 +178,7 @@ function getTournamentLabel(tournament: Tournament | null) {
   if (tier === "fall") return "FedExCup Fall";
   if (tier === "co-sanctioned") return "Co-Sanctioned Event";
 
-  return tournament.tour || "Tournament";
+  return null;
 }
 
 function formatCurrency(value: string | number) {
@@ -228,7 +215,7 @@ function statusTone(status: string | null | undefined) {
   const value = String(status ?? "").toLowerCase();
 
   if (value === "open" || value === "live" || value === "upcoming") return "success";
-  if (value === "hidden" || value === "final" || value === "archived") return "muted";
+  if (value === "hidden" || value === "final") return "muted";
   return "default";
 }
 
@@ -237,18 +224,17 @@ function Badge({
   variant = "default",
 }: {
   children: ReactNode;
-  variant?: "default" | "success" | "muted" | "danger" | "gold";
+  variant?: "default" | "success" | "muted" | "danger";
 }) {
   return (
     <div
       className={cn(
-        "inline-flex items-center gap-2 rounded-full border px-4 py-2 text-[10px] font-black uppercase tracking-[0.18em]",
+        "inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-black uppercase tracking-[0.18em]",
         variant === "success" &&
           "border-emerald-400/25 bg-emerald-400/10 text-emerald-300",
         variant === "default" && "border-white/12 bg-white/5 text-white/80",
         variant === "muted" && "border-white/10 bg-black/20 text-neutral-400",
-        variant === "danger" && "border-red-400/20 bg-red-400/10 text-red-200",
-        variant === "gold" && "border-amber-300/25 bg-amber-300/10 text-amber-200"
+        variant === "danger" && "border-red-400/20 bg-red-400/10 text-red-200"
       )}
     >
       {children}
@@ -266,7 +252,7 @@ function GlassCard({
   return (
     <div
       className={cn(
-        "rounded-[34px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.085),rgba(255,255,255,0.035))] shadow-[0_28px_110px_rgba(0,0,0,0.34)] backdrop-blur-xl",
+        "rounded-[30px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.03))] shadow-[0_24px_100px_rgba(0,0,0,0.32)] backdrop-blur-xl",
         className
       )}
     >
@@ -276,12 +262,10 @@ function GlassCard({
 }
 
 function SectionHeader({
-  eyebrow,
   title,
   subtitle,
   right,
 }: {
-  eyebrow?: string;
   title: string;
   subtitle?: string;
   right?: ReactNode;
@@ -289,14 +273,7 @@ function SectionHeader({
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div>
-        {eyebrow ? (
-          <p className="mb-3 text-[11px] font-black uppercase tracking-[0.24em] text-emerald-300">
-            {eyebrow}
-          </p>
-        ) : null}
-        <h2 className="text-2xl font-black tracking-tight text-white sm:text-3xl">
-          {title}
-        </h2>
+        <h2 className="text-2xl font-black tracking-tight text-white">{title}</h2>
         {subtitle ? (
           <p className="mt-2 max-w-2xl text-sm leading-6 text-neutral-400">
             {subtitle}
@@ -433,6 +410,73 @@ function StatBox({
   );
 }
 
+function TournamentCard({
+  tournament,
+  isSelected,
+  onClick,
+}: {
+  tournament: Tournament;
+  isSelected: boolean;
+  onClick: () => void;
+}) {
+  const lockDate = formatDate(tournament.lock_time);
+  const lockTime = formatTime(tournament.lock_time);
+  const label = getTournamentLabel(tournament);
+  const featured = Boolean(tournament.is_featured || tournament.is_major);
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "group w-full rounded-[26px] border p-5 text-left transition",
+        isSelected
+          ? "border-emerald-400/35 bg-emerald-400/10 shadow-[0_18px_70px_rgba(16,185,129,0.12)]"
+          : featured
+            ? "border-emerald-400/15 bg-emerald-400/[0.055] hover:border-emerald-400/30 hover:bg-emerald-400/[0.08]"
+            : "border-white/10 bg-black/20 hover:border-white/18 hover:bg-white/[0.04]"
+      )}
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            {label ? (
+              <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-emerald-300">
+                {label}
+              </span>
+            ) : null}
+
+            {tournament.tour ? (
+              <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-neutral-300">
+                {tournament.tour}
+              </span>
+            ) : null}
+          </div>
+
+          <h3 className="mt-4 text-2xl font-black tracking-tight text-white">
+            {tournament.name}
+          </h3>
+
+          <p className="mt-3 text-base leading-7 text-neutral-300">
+            {formatTournamentMeta(tournament) || "Tournament details available"}
+          </p>
+
+          {lockDate ? (
+            <p className="mt-5 text-[11px] uppercase tracking-[0.18em] text-neutral-500">
+              Locks {lockDate}
+              {lockTime ? ` • ${lockTime}` : ""}
+            </p>
+          ) : null}
+        </div>
+
+        <Badge variant={statusTone(tournament.status) as "default" | "success" | "muted"}>
+          {tournament.status || "upcoming"}
+        </Badge>
+      </div>
+    </button>
+  );
+}
+
 function PreviewRow({
   label,
   value,
@@ -482,7 +526,7 @@ function PricingCard({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "relative rounded-[28px] border p-5 text-left transition disabled:cursor-not-allowed disabled:opacity-45",
+        "relative rounded-[26px] border p-5 text-left transition disabled:cursor-not-allowed disabled:opacity-45",
         selected
           ? "border-emerald-400/40 bg-emerald-400/10 shadow-[0_18px_70px_rgba(16,185,129,0.10)]"
           : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-white/[0.04]"
@@ -501,198 +545,8 @@ function PricingCard({
   );
 }
 
-function StepTab({
-  number,
-  title,
-  description,
-  active,
-  complete,
-  onClick,
-}: {
-  number: string;
-  title: string;
-  description: string;
-  active: boolean;
-  complete?: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "rounded-[24px] border p-4 text-left transition",
-        active
-          ? "border-emerald-400/35 bg-emerald-400/10"
-          : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-white/[0.04]"
-      )}
-    >
-      <div className="flex items-center gap-3">
-        <span
-          className={cn(
-            "flex h-8 w-8 items-center justify-center rounded-full text-sm font-black",
-            active || complete ? "bg-emerald-400 text-black" : "bg-white/10 text-white"
-          )}
-        >
-          {complete ? "✓" : number}
-        </span>
-        <div>
-          <p className="text-sm font-black text-white">{title}</p>
-          <p className="mt-1 text-xs leading-5 text-neutral-400">{description}</p>
-        </div>
-      </div>
-    </button>
-  );
-}
-
-function SpotlightTournamentCard({
-  tournament,
-  isSelected,
-  onClick,
-}: {
-  tournament: Tournament;
-  isSelected: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "rounded-[28px] border p-5 text-left transition",
-        isSelected
-          ? "border-emerald-400/45 bg-emerald-400/12 shadow-[0_20px_80px_rgba(16,185,129,0.12)]"
-          : "border-white/10 bg-black/20 hover:border-emerald-400/25 hover:bg-emerald-400/[0.055]"
-      )}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="space-y-3">
-          <Badge variant={tournament.is_major ? "gold" : "success"}>
-            {getTournamentLabel(tournament)}
-          </Badge>
-          <h3 className="text-2xl font-black tracking-tight text-white">
-            {tournament.name}
-          </h3>
-          <p className="text-sm leading-6 text-neutral-400">
-            {tournament.course || tournament.location || "Tournament details"}
-          </p>
-        </div>
-        <span
-          className={cn(
-            "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-sm font-black",
-            isSelected
-              ? "border-emerald-400 bg-emerald-400 text-black"
-              : "border-white/15 text-white/40"
-          )}
-        >
-          {isSelected ? "✓" : ""}
-        </span>
-      </div>
-      <div className="mt-5 rounded-[18px] border border-white/10 bg-black/20 px-4 py-3 text-sm font-bold text-neutral-200">
-        {formatTournamentDates(tournament)}
-      </div>
-    </button>
-  );
-}
-
-function SummaryPanel({
-  selectedTournament,
-  poolName,
-  entryFee,
-  allowFreePool,
-  draftFormat,
-  rosterSize,
-  playersCounted,
-  salaryCap,
-  maxPlayers,
-  bonusCount,
-}: {
-  selectedTournament: Tournament | null;
-  poolName: string;
-  entryFee: number;
-  allowFreePool: boolean;
-  draftFormat: DraftFormat;
-  rosterSize: number;
-  playersCounted: number;
-  salaryCap: string;
-  maxPlayers: string;
-  bonusCount: number;
-}) {
-  const maxPlayersNumber = Number(maxPlayers || 0);
-  const projectedPot = maxPlayersNumber > 0 ? entryFee * maxPlayersNumber : 0;
-
-  return (
-    <GlassCard className="p-6 sm:p-7 lg:sticky lg:top-6">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <p className="text-[11px] font-black uppercase tracking-[0.24em] text-emerald-300">
-            Pool Preview
-          </p>
-          <h2 className="mt-3 text-2xl font-black tracking-tight text-white">
-            {poolName.trim() || "Untitled Pool"}
-          </h2>
-        </div>
-        <Badge variant="success">Premium</Badge>
-      </div>
-
-      <div className="mt-6 grid gap-3">
-        <PreviewRow
-          label="Tournament"
-          value={selectedTournament?.name || "Choose tournament"}
-          highlight
-        />
-        <PreviewRow
-          label="Course + Location"
-          value={
-            selectedTournament
-              ? selectedTournament.course || selectedTournament.location || "Details coming soon"
-              : "Select an event first"
-          }
-        />
-        <PreviewRow label="Dates" value={formatTournamentDates(selectedTournament)} />
-        <PreviewRow label="Format" value={displayFormat(draftFormat)} />
-        <PreviewRow
-          label="Roster"
-          value={`${rosterSize} golfers • best ${playersCounted} count`}
-        />
-        <PreviewRow
-          label="Group Buy-In"
-          value={allowFreePool ? "$0 free group pool" : formatCurrency(entryFee)}
-        />
-        {draftFormat === "salary_cap" ? (
-          <PreviewRow label="Salary Cap" value={formatCurrency(salaryCap)} />
-        ) : null}
-      </div>
-
-      <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-        <StatBox
-          label="Pool Size"
-          value={`${maxPlayersNumber || 0}`}
-          detail="Maximum players allowed"
-        />
-        <StatBox
-          label="Projected Pot"
-          value={formatCurrency(projectedPot)}
-          detail="Tracked by the manager"
-        />
-      </div>
-
-      <div className="mt-6 rounded-[24px] border border-emerald-400/15 bg-emerald-400/[0.06] p-5">
-        <p className="text-sm font-black text-white">What players get</p>
-        <p className="mt-2 text-sm leading-6 text-neutral-300">
-          Live standings, private rosters before lock, invite code access, chat energy,
-          and {bonusCount} active scoring bonus{bonusCount === 1 ? "" : "es"}.
-        </p>
-      </div>
-    </GlassCard>
-  );
-}
-
 export default function CreatePoolPage() {
   const router = useRouter();
-
-  const [step, setStep] = useState<StepKey>("tournament");
-  const [showFullSchedule, setShowFullSchedule] = useState(false);
 
   const [poolrUserId, setPoolrUserId] = useState("");
   const [poolrUser, setPoolrUser] = useState<PoolrUser | null>(null);
@@ -732,6 +586,7 @@ export default function CreatePoolPage() {
   const [isSaving, setIsSaving] = useState(false);
 
   const [createdCode, setCreatedCode] = useState("");
+  const [createdPoolId, setCreatedPoolId] = useState("");
   const [createdInviteLink, setCreatedInviteLink] = useState("");
   const [copied, setCopied] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -840,9 +695,7 @@ export default function CreatePoolPage() {
         if (created.error) throw new Error(created.error.message);
 
         setCreatorProfile(created.data as CreatorProfile);
-        setSelectedPurchase(
-          poolrUser?.has_used_free_pool_experience ? "single_pool" : "free_first_pool"
-        );
+        setSelectedPurchase(poolrUser?.has_used_free_pool_experience ? "single_pool" : "free_first_pool");
       } catch (error) {
         console.error("Failed to load creator profile:", error);
         setErrorMessage(
@@ -889,6 +742,10 @@ export default function CreatePoolPage() {
           visibleRows.find((tournament) => tournament.slug === "2026-us-open") ??
           visibleRows.find((tournament) => tournament.slug === "us-open-2026") ??
           visibleRows.find((tournament) => tournament.is_featured) ??
+          visibleRows.find((tournament) => {
+            const status = String(tournament.status ?? "").toLowerCase();
+            return status === "open" || status === "live" || status === "upcoming";
+          }) ??
           visibleRows[0];
 
         setSelectedTournamentId((current) => current || preferred.id);
@@ -909,17 +766,23 @@ export default function CreatePoolPage() {
   const selectedTournament =
     tournaments.find((tournament) => tournament.id === selectedTournamentId) ?? null;
 
+  const selectedTournamentMeta = selectedTournament
+    ? formatTournamentMeta(selectedTournament)
+    : "";
+
   const featuredTournaments = useMemo(
     () =>
       tournaments
         .filter((tournament) => tournament.is_featured || tournament.is_major)
-        .sort(sortTournaments)
-        .slice(0, 6),
+        .sort(sortTournaments),
     [tournaments]
   );
 
   const standardTournaments = useMemo(
-    () => tournaments.filter((tournament) => !tournament.is_featured && !tournament.is_major),
+    () =>
+      tournaments
+        .filter((tournament) => !tournament.is_featured && !tournament.is_major)
+        .sort(sortTournaments),
     [tournaments]
   );
 
@@ -928,6 +791,7 @@ export default function CreatePoolPage() {
   const entryFeeNumber = allowFreePool ? 0 : Number(entryFee || 0);
   const maxPlayersNumber = Number(maxPlayers || 0);
   const salaryCapNumber = Number(salaryCap || 0);
+
   const projectedPot = maxPlayersNumber > 0 ? entryFeeNumber * maxPlayersNumber : 0;
 
   const previewJoinLink =
@@ -937,37 +801,12 @@ export default function CreatePoolPage() {
 
   const launchLabel =
     selectedPurchase === "free_first_pool" || hasActivePlan
-      ? "Launch Pool"
+      ? "Launch Premium Pool"
       : selectedPurchase === "single_pool"
-        ? "Continue to Checkout — $9.99"
+        ? "Stripe Checkout Required — $9.99"
         : selectedPurchase === "monthly"
-          ? "Continue to Checkout — $9.99/mo"
-          : "Continue to Checkout — $59.99/yr";
-
-  function chooseTournament(id: string) {
-    setSelectedTournamentId(id);
-  }
-
-  function continueFromTournament() {
-    if (!selectedTournamentId) {
-      setErrorMessage("Select a tournament to continue.");
-      return;
-    }
-    setErrorMessage("");
-    setStep("setup");
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }
-
-  function continueFromSetup() {
-    const validationError = validateSetupOnly();
-    if (validationError) {
-      setErrorMessage(validationError);
-      return;
-    }
-    setErrorMessage("");
-    setStep("unlock");
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }
+          ? "Stripe Checkout Required — $9.99/mo"
+          : "Stripe Checkout Required — $59.99/yr";
 
   async function handleCopyCode() {
     if (!createdCode) return;
@@ -1011,10 +850,18 @@ export default function CreatePoolPage() {
     return code;
   }
 
-  function validateSetupOnly() {
+  function validateForm() {
     if (!poolrUserId) return "Create your Poolr account before launching a pool.";
     if (!poolName.trim()) return "Enter a pool name.";
     if (!selectedTournamentId) return "Select a tournament.";
+
+    if (!freePoolAvailable && selectedPurchase === "free_first_pool") {
+      return "Your free Poolr experience has already been used. Choose Single Pool, Monthly, or Annual.";
+    }
+
+    if (!hasActivePlan && selectedPurchase !== "free_first_pool") {
+      return "Stripe checkout is the next step. Tomorrow we will connect Single Pool, Monthly, and Annual checkout before paid pools can launch.";
+    }
 
     if (!allowFreePool && Number(entryFee) < 0) {
       return "Entry fee cannot be negative.";
@@ -1030,21 +877,6 @@ export default function CreatePoolPage() {
 
     if (playersCounted < getMinCount(rosterSize) || playersCounted > rosterSize) {
       return "Players counted must be at least half the roster and no more than the roster size.";
-    }
-
-    return "";
-  }
-
-  function validateForm() {
-    const setupError = validateSetupOnly();
-    if (setupError) return setupError;
-
-    if (!freePoolAvailable && selectedPurchase === "free_first_pool") {
-      return "Your free Poolr experience has already been used. Choose Single Pool, Monthly, or Annual.";
-    }
-
-    if (!hasActivePlan && selectedPurchase !== "free_first_pool") {
-      return "Stripe checkout is the next step. Once Stripe is connected, this option will continue to checkout.";
     }
 
     return "";
@@ -1228,6 +1060,7 @@ export default function CreatePoolPage() {
     setSuccessMessage("");
     setCopied(false);
     setCreatedCode("");
+    setCreatedPoolId("");
     setCreatedInviteLink("");
 
     if (validationError) {
@@ -1283,9 +1116,10 @@ export default function CreatePoolPage() {
             )}`
           : `/join-pool?code=${encodeURIComponent(finalInviteCode)}`;
 
+      setCreatedPoolId(createdPool.id);
       setCreatedCode(finalInviteCode);
       setCreatedInviteLink(inviteLink);
-      setSuccessMessage("Your Poolr pool is live. Redirecting to the lobby...");
+      setSuccessMessage("Your premium pool is live. Redirecting to the lobby...");
 
       window.setTimeout(() => {
         router.push(`/pool/${createdPool.id}`);
@@ -1295,7 +1129,7 @@ export default function CreatePoolPage() {
       setErrorMessage(
         error instanceof Error
           ? error.message
-          : "Something went wrong while creating your Poolr pool."
+          : "Something went wrong while creating your premium pool."
       );
     } finally {
       setIsSaving(false);
@@ -1309,584 +1143,676 @@ export default function CreatePoolPage() {
         <div className="absolute left-1/2 top-0 h-[450px] w-[450px] -translate-x-1/2 rounded-full bg-emerald-400/10 blur-[130px]" />
         <div className="absolute inset-x-0 top-0 h-px bg-white/10" />
 
-        <div className="relative mx-auto max-w-[1480px] px-5 pb-16 pt-10 sm:px-6 sm:pb-20 lg:px-8 lg:pt-16">
-          <div className="grid gap-8 xl:grid-cols-[0.9fr_1.1fr] xl:items-center">
+        <div className="relative mx-auto max-w-7xl px-6 pb-16 pt-12 sm:pb-20 sm:pt-16 lg:px-8 lg:pt-20">
+          <div className="grid gap-8 lg:grid-cols-[1.15fr_0.85fr] lg:items-center">
             <section>
               <Badge variant="success">
                 <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                Create Pool
+                Premium Pool Creation
               </Badge>
 
-              <h1 className="mt-6 max-w-4xl text-4xl font-black tracking-tight text-white sm:text-5xl lg:text-7xl">
-                Build the golf pool your group wants to run back.
+              <h1 className="mt-6 max-w-5xl text-4xl font-black tracking-tight text-white sm:text-5xl lg:text-7xl">
+                Launch the cleanest golf pool your group has ever played.
               </h1>
 
               <p className="mt-6 max-w-3xl text-lg leading-8 text-neutral-300">
-                Pick the tournament, set the format, invite your group, and let Poolr handle the live competition.
+                Choose the tournament, lock the format, set the rules, and create a
+                premium invite flow that gets your group into the action fast.
               </p>
 
               <div className="mt-8 flex flex-wrap gap-3">
-                <FeaturePill label="Live standings" />
-                <FeaturePill label="Private rosters" />
-                <FeaturePill label="Bonus moments" />
-                <FeaturePill label="Invite code" />
+                <FeaturePill label="LIVE LEADERBOARD" />
+                <FeaturePill label="PRIVATE PICKS BEFORE LOCK" />
+                <FeaturePill label="INVITE CODE SYSTEM" />
+                <FeaturePill label="PREMIUM EXPERIENCE" />
+              </div>
+
+              <div className="mt-10 grid gap-4 sm:grid-cols-3">
+                <StatBox
+                  label="Pool Type"
+                  value="Premium"
+                  detail="Creator pays, everyone else joins free."
+                />
+                <StatBox
+                  label="Current Format"
+                  value={displayFormat(draftFormat)}
+                  detail="Simple rules make the pool feel serious."
+                />
+                <StatBox
+                  label="Projected Pot"
+                  value={formatCurrency(projectedPot)}
+                  detail={`${maxPlayersNumber || 0} players at ${formatCurrency(entryFeeNumber)}`}
+                />
               </div>
             </section>
 
-            <GlassCard className="p-6 sm:p-7">
-              <div className="grid gap-4 md:grid-cols-3">
-                <StepTab
-                  number="1"
-                  title="Tournament"
-                  description="Choose the event."
-                  active={step === "tournament"}
-                  complete={Boolean(selectedTournamentId) && step !== "tournament"}
-                  onClick={() => setStep("tournament")}
+            <GlassCard className="p-7 sm:p-8">
+              <p className="text-[11px] uppercase tracking-[0.24em] text-emerald-300">
+                Poolr Access
+              </p>
+
+              <h2 className="mt-4 text-3xl font-black tracking-tight text-white sm:text-4xl">
+                Create a premium golf pool in seconds.
+              </h2>
+
+              <p className="mt-5 text-base leading-8 text-neutral-300">
+                Poolr handles the setup: tournament connection, custom rules, invite code,
+                and live lobby — so your group can join fast and play with a premium experience.
+              </p>
+
+              <div className="mt-8 grid gap-4 sm:grid-cols-2">
+                <StatBox
+                  label="Tournament"
+                  value={selectedTournament?.name || "Select one"}
+                  detail={selectedTournamentMeta || "Pick the live event"}
                 />
-                <StepTab
-                  number="2"
-                  title="Rules"
-                  description="Set the format."
-                  active={step === "setup"}
-                  complete={step === "unlock"}
-                  onClick={() => setStep("setup")}
-                />
-                <StepTab
-                  number="3"
-                  title="Launch"
-                  description="Confirm access."
-                  active={step === "unlock"}
-                  onClick={() => setStep("unlock")}
+                <StatBox
+                  label="Selected Plan"
+                  value={purchasePriceText(selectedPurchase)}
+                  detail={purchaseLabel(selectedPurchase)}
                 />
               </div>
 
-              <div className="mt-6 grid gap-4 sm:grid-cols-3">
-                <StatBox
-                  label="Tournament"
-                  value={selectedTournament?.name || "Pick one"}
-                  detail={formatTournamentDates(selectedTournament)}
-                />
-                <StatBox
-                  label="Format"
-                  value={displayFormat(draftFormat)}
-                  detail={`${rosterSize} golfers • best ${playersCounted} count`}
-                />
-                <StatBox
-                  label="Group Buy-In"
-                  value={allowFreePool ? "$0" : formatCurrency(entryFeeNumber)}
-                  detail="Tracked by the manager"
-                />
-              </div>
+              {poolrUser && (
+                <div className="mt-5 rounded-[24px] border border-white/10 bg-black/20 p-5">
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-neutral-500">
+                    Signed In
+                  </p>
+                  <p className="mt-2 text-lg font-black text-white">
+                    {poolrUser.full_name}
+                  </p>
+                  <p className="mt-1 text-sm text-neutral-400">{poolrUser.email}</p>
+                </div>
+              )}
             </GlassCard>
           </div>
 
-          <div className="mt-10 grid gap-8 xl:grid-cols-[minmax(0,1.08fr)_minmax(360px,0.92fr)] xl:items-start">
-            <section className="space-y-8">
-              {step === "tournament" ? (
-                <GlassCard className="p-6 sm:p-8">
-                  <SectionHeader
-                    eyebrow="Step 1"
-                    title="Choose the tournament"
-                    subtitle="The biggest events are surfaced first. Open the full schedule only when you need a weekly or alternate event."
-                    right={
-                      <Badge variant="muted">
-                        {loadingTournaments ? "Loading" : `${tournaments.length} events`}
-                      </Badge>
-                    }
+          <div className="mt-10 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+            <section className="space-y-6">
+              <GlassCard className="p-6 sm:p-7">
+                <SectionHeader
+                  title="Product Access"
+                  subtitle="One creator unlocks the pool. Everyone else joins free."
+                  right={
+                    <Badge variant={freePoolAvailable ? "success" : "muted"}>
+                      {loadingPoolrUser || loadingCreator
+                        ? "Loading"
+                        : hasActivePlan
+                          ? `${creatorProfile?.plan} active`
+                          : freePoolAvailable
+                            ? "Free pool available"
+                            : "Free experience used"}
+                    </Badge>
+                  }
+                />
+
+                <div className="mt-6 rounded-[24px] border border-amber-300/15 bg-amber-300/[0.06] p-4 text-sm leading-6 text-amber-100/90">
+                  Paid checkout is intentionally blocked until Stripe is connected tomorrow. Free first pools can launch now; Single Pool, Monthly, and Annual will route through Stripe once live.
+                </div>
+
+                <div className="mt-6 grid gap-4 md:grid-cols-2">
+                  <PricingCard
+                    title="Free First Pool"
+                    price="$0"
+                    description="Your first Poolr experience lets you try the premium product with your group."
+                    selected={selectedPurchase === "free_first_pool"}
+                    disabled={!freePoolAvailable || hasActivePlan}
+                    badge={freePoolAvailable ? "Available" : "Used"}
+                    onClick={() => setSelectedPurchase("free_first_pool")}
                   />
 
-                  <div className="mt-8">
-                    {loadingTournaments ? (
-                      <div className="rounded-[28px] border border-white/10 bg-black/20 p-6 text-neutral-400">
-                        Loading tournaments...
-                      </div>
-                    ) : tournaments.length === 0 ? (
-                      <div className="rounded-[28px] border border-white/10 bg-black/20 p-6 text-neutral-400">
-                        No tournaments available yet.
-                      </div>
-                    ) : (
-                      <>
-                        <div className="grid gap-4 md:grid-cols-2">
-                          {featuredTournaments.map((tournament) => (
-                            <SpotlightTournamentCard
-                              key={tournament.id}
-                              tournament={tournament}
-                              isSelected={tournament.id === selectedTournamentId}
-                              onClick={() => chooseTournament(tournament.id)}
-                            />
-                          ))}
-                        </div>
+                  <PricingCard
+                    title="Single Pool"
+                    price="$9.99"
+                    description="Run one premium pool for one tournament."
+                    selected={selectedPurchase === "single_pool"}
+                    disabled={hasActivePlan}
+                    badge="Default"
+                    onClick={() => setSelectedPurchase("single_pool")}
+                  />
 
-                        <div className="mt-6 rounded-[28px] border border-white/10 bg-black/20 p-5">
-                          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+                  <PricingCard
+                    title="Monthly Pro"
+                    price="$9.99/mo"
+                    description="Run unlimited pools while your monthly plan is active."
+                    selected={selectedPurchase === "monthly"}
+                    badge="Unlimited"
+                    onClick={() => setSelectedPurchase("monthly")}
+                  />
+
+                  <PricingCard
+                    title="Annual Pro"
+                    price="$59.99/yr"
+                    description="Best value for serious groups that play all season."
+                    selected={selectedPurchase === "annual"}
+                    badge="Best Value"
+                    onClick={() => setSelectedPurchase("annual")}
+                  />
+                </div>
+              </GlassCard>
+
+              <GlassCard className="p-6 sm:p-7">
+                <SectionHeader
+                  title="Tournament Selection"
+                  subtitle="Featured events are shown first so creators can launch pools faster for majors, playoffs, LIV events, and high-demand tournaments."
+                  right={
+                    <Badge variant="muted">
+                      {loadingTournaments
+                        ? "Loading"
+                        : `${tournaments.length} tournament${
+                            tournaments.length === 1 ? "" : "s"
+                          }`}
+                    </Badge>
+                  }
+                />
+
+                <div className="mt-6 space-y-7">
+                  {loadingTournaments ? (
+                    <div className="rounded-[24px] border border-white/10 bg-black/20 p-5 text-neutral-400">
+                      Loading tournaments...
+                    </div>
+                  ) : tournaments.length === 0 ? (
+                    <div className="rounded-[24px] border border-white/10 bg-black/20 p-5 text-neutral-400">
+                      No tournaments available yet. Add or unhide a tournament in Supabase.
+                    </div>
+                  ) : (
+                    <>
+                      {featuredTournaments.length > 0 ? (
+                        <div>
+                          <div className="mb-4 flex items-end justify-between gap-4">
                             <div>
-                              <p className="text-sm font-black text-white">Full schedule</p>
-                              <p className="mt-1 text-sm leading-6 text-neutral-400">
-                                Use this for weekly PGA TOUR, LIV, and fall events.
+                              <p className="text-[11px] font-black uppercase tracking-[0.22em] text-emerald-300">
+                                Featured Events
+                              </p>
+                              <p className="mt-1 text-sm leading-6 text-neutral-500">
+                                Majors, playoffs, LIV events, and tournaments most likely to drive group pools.
                               </p>
                             </div>
 
-                            <button
-                              type="button"
-                              onClick={() => setShowFullSchedule((current) => !current)}
-                              className="rounded-[22px] border border-white/10 bg-white/5 px-5 py-3 text-sm font-black text-white transition hover:bg-white/10"
-                            >
-                              {showFullSchedule ? "Hide schedule" : "Browse full schedule"}
-                            </button>
+                            <Badge variant="success">Priority</Badge>
                           </div>
 
-                          <div className="mt-5 grid gap-4 lg:grid-cols-[1fr_auto] lg:items-center">
-                            <SelectInput
-                              value={selectedTournamentId}
-                              onChange={(event) => chooseTournament(event.target.value)}
-                            >
-                              {tournaments.map((tournament) => (
-                                <option key={tournament.id} value={tournament.id}>
-                                  {tournament.name} — {formatTournamentDates(tournament)}
-                                </option>
-                              ))}
-                            </SelectInput>
-
-                            <Badge variant={statusTone(selectedTournament?.status) as "default" | "success" | "muted"}>
-                              {selectedTournament?.status || "upcoming"}
-                            </Badge>
-                          </div>
-
-                          {showFullSchedule ? (
-                            <div className="mt-5 max-h-[420px] space-y-3 overflow-auto pr-1">
-                              {standardTournaments.map((tournament) => (
-                                <button
-                                  type="button"
-                                  key={tournament.id}
-                                  onClick={() => chooseTournament(tournament.id)}
-                                  className={cn(
-                                    "flex w-full flex-col gap-2 rounded-[22px] border p-4 text-left transition sm:flex-row sm:items-center sm:justify-between",
-                                    tournament.id === selectedTournamentId
-                                      ? "border-emerald-400/35 bg-emerald-400/10"
-                                      : "border-white/10 bg-white/[0.03] hover:bg-white/[0.06]"
-                                  )}
-                                >
-                                  <div>
-                                    <p className="font-black text-white">{tournament.name}</p>
-                                    <p className="mt-1 text-sm text-neutral-400">
-                                      {formatTournamentMeta(tournament)}
-                                    </p>
-                                  </div>
-                                  <Badge variant="muted">{getTournamentLabel(tournament)}</Badge>
-                                </button>
-                              ))}
-                            </div>
-                          ) : null}
-                        </div>
-
-                        <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                          <button
-                            type="button"
-                            onClick={continueFromTournament}
-                            className="rounded-[24px] bg-emerald-400 px-6 py-3.5 text-sm font-black text-black transition hover:bg-emerald-300"
-                          >
-                            Continue to Pool Rules
-                          </button>
-                          <Link
-                            href="/join-pool"
-                            className="rounded-[24px] border border-white/10 bg-white/5 px-6 py-3.5 text-center text-sm font-black text-white transition hover:bg-white/10"
-                          >
-                            Join an Existing Pool
-                          </Link>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </GlassCard>
-              ) : null}
-
-              {step === "setup" ? (
-                <div className="space-y-8">
-                  <GlassCard className="p-6 sm:p-8">
-                    <SectionHeader
-                      eyebrow="Step 2"
-                      title="Set up the pool"
-                      subtitle="Name it, set the group buy-in, and choose the rules before access or checkout appears."
-                    />
-
-                    <div className="mt-8 grid gap-6 md:grid-cols-2">
-                      <Field label="Pool Name" hint="Required">
-                        <TextInput
-                          value={poolName}
-                          onChange={(event) => setPoolName(event.target.value)}
-                          placeholder="Sunday Money Club"
-                        />
-                      </Field>
-
-                      <Field label="Group Buy-In" hint={allowFreePool ? "Free group pool" : "Tracked by manager"}>
-                        <div className="relative">
-                          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500">
-                            $
-                          </span>
-                          <TextInput
-                            type="number"
-                            min="0"
-                            value={entryFee}
-                            onChange={(event) => setEntryFee(event.target.value)}
-                            disabled={allowFreePool}
-                            className="pl-9"
-                          />
-                        </div>
-                      </Field>
-
-                      <Field label="Max Players" hint="Pool size">
-                        <TextInput
-                          type="number"
-                          min="2"
-                          value={maxPlayers}
-                          onChange={(event) => setMaxPlayers(event.target.value)}
-                        />
-                      </Field>
-
-                      <div className="rounded-[24px] border border-white/10 bg-black/20 p-5">
-                        <p className="text-sm font-black text-white">Creator pays. Everyone joins.</p>
-                        <p className="mt-2 text-sm leading-6 text-neutral-400">
-                          Poolr access is separate from your group buy-in. The group buy-in is only tracked for your pool manager.
-                        </p>
-                      </div>
-                    </div>
-                  </GlassCard>
-
-                  <div className="grid gap-8 lg:grid-cols-2">
-                    <GlassCard className="p-6 sm:p-8">
-                      <SectionHeader
-                        title="Format + roster"
-                        subtitle="Simple enough for the group, flexible enough for serious players."
-                      />
-
-                      <div className="mt-8 grid gap-6">
-                        <Field label="Draft Format">
-                          <div className="grid gap-3 sm:grid-cols-2">
-                            <button
-                              type="button"
-                              onClick={() => setDraftFormat("salary_cap")}
-                              className={cn(
-                                "rounded-[22px] border px-5 py-4 text-sm font-black transition",
-                                draftFormat === "salary_cap"
-                                  ? "border-emerald-400/40 bg-emerald-400/10 text-emerald-300"
-                                  : "border-white/10 bg-black/20 text-white hover:bg-white/[0.04]"
-                              )}
-                            >
-                              Salary Cap
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setDraftFormat("tiered_draft")}
-                              className={cn(
-                                "rounded-[22px] border px-5 py-4 text-sm font-black transition",
-                                draftFormat === "tiered_draft"
-                                  ? "border-emerald-400/40 bg-emerald-400/10 text-emerald-300"
-                                  : "border-white/10 bg-black/20 text-white hover:bg-white/[0.04]"
-                              )}
-                            >
-                              Tiered Draft
-                            </button>
-                          </div>
-                        </Field>
-
-                        <div className="grid gap-6 md:grid-cols-2">
-                          <Field label="Roster Size" hint="Max 10">
-                            <SelectInput
-                              value={rosterSize}
-                              onChange={(event) => setRosterSize(Number(event.target.value))}
-                            >
-                              {ROSTER_OPTIONS.map((option) => (
-                                <option key={option} value={option}>
-                                  {option} golfers
-                                </option>
-                              ))}
-                            </SelectInput>
-                          </Field>
-
-                          <Field label="Players Counted" hint="Best scores">
-                            <SelectInput
-                              value={playersCounted}
-                              onChange={(event) => setPlayersCounted(Number(event.target.value))}
-                            >
-                              {countedOptions.map((option) => (
-                                <option key={option} value={option}>
-                                  Best {option} count
-                                </option>
-                              ))}
-                            </SelectInput>
-                          </Field>
-                        </div>
-
-                        {draftFormat === "salary_cap" ? (
-                          <Field label="Salary Cap" hint="Fake budget">
-                            <div className="relative">
-                              <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500">
-                                $
-                              </span>
-                              <TextInput
-                                type="number"
-                                min="1"
-                                value={salaryCap}
-                                onChange={(event) => setSalaryCap(event.target.value)}
-                                className="pl-9"
+                          <div className="space-y-4">
+                            {featuredTournaments.map((tournament) => (
+                              <TournamentCard
+                                key={tournament.id}
+                                tournament={tournament}
+                                isSelected={tournament.id === selectedTournamentId}
+                                onClick={() => setSelectedTournamentId(tournament.id)}
                               />
-                            </div>
-                          </Field>
-                        ) : (
-                          <Field label="Tier Rule">
-                            <TextInput
-                              value={tierRule}
-                              onChange={(event) => setTierRule(event.target.value)}
-                              placeholder="1 player from each tier"
-                            />
-                          </Field>
-                        )}
-
-                        <div className="rounded-[24px] border border-white/10 bg-black/20 p-5">
-                          <p className="text-sm font-black text-white">Roster rule</p>
-                          <p className="mt-2 text-sm leading-6 text-neutral-400">
-                            Each team picks {rosterSize} golfers. The best {playersCounted} score{playersCounted === 1 ? "" : "s"} count toward the leaderboard.
-                          </p>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    </GlassCard>
+                      ) : null}
 
-                    <GlassCard className="p-6 sm:p-8">
-                      <SectionHeader
-                        title="Poolr experience"
-                        subtitle="Turn on the features that make the tournament feel alive."
+                      {standardTournaments.length > 0 ? (
+                        <div>
+                          <div className="mb-4">
+                            <p className="text-[11px] font-black uppercase tracking-[0.22em] text-neutral-500">
+                              All Upcoming Tournaments
+                            </p>
+                            <p className="mt-1 text-sm leading-6 text-neutral-500">
+                              Full catalog for weekly pools across PGA TOUR and LIV events.
+                            </p>
+                          </div>
+
+                          <div className="space-y-4">
+                            {standardTournaments.map((tournament) => (
+                              <TournamentCard
+                                key={tournament.id}
+                                tournament={tournament}
+                                isSelected={tournament.id === selectedTournamentId}
+                                onClick={() => setSelectedTournamentId(tournament.id)}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+                    </>
+                  )}
+                </div>
+              </GlassCard>
+
+              <GlassCard className="p-6 sm:p-7">
+                <SectionHeader
+                  title="Pool Identity"
+                  subtitle="Name it, price it, and set the first impression."
+                />
+
+                <div className="mt-6 grid gap-6 md:grid-cols-2">
+                  <Field label="Pool Name" hint="Required">
+                    <TextInput
+                      value={poolName}
+                      onChange={(event) => setPoolName(event.target.value)}
+                      placeholder="Sunday Money Club"
+                    />
+                  </Field>
+
+                  <Field label="Entry Fee" hint={allowFreePool ? "Free group pool" : "Group buy-in"}>
+                    <div className="relative">
+                      <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500">
+                        $
+                      </span>
+
+                      <TextInput
+                        type="number"
+                        min="0"
+                        value={entryFee}
+                        onChange={(event) => setEntryFee(event.target.value)}
+                        disabled={allowFreePool}
+                        className="pl-9"
                       />
+                    </div>
+                  </Field>
 
-                      <div className="mt-8 grid gap-3">
-                        <Toggle
-                          label="Live standings"
-                          description="Players can follow the leaderboard during the tournament."
-                          checked={showLiveLeaderboard}
-                          onChange={() => setShowLiveLeaderboard((previous) => !previous)}
-                        />
-                        <Toggle
-                          label="Hide rosters until lock"
-                          description="Keep picks private until the tournament starts."
-                          checked={hideRostersUntilLock}
-                          onChange={() => setHideRostersUntilLock((previous) => !previous)}
-                        />
-                        <Toggle
-                          label="Pool chat"
-                          description="Keep the group energy and trash talk inside the pool."
-                          checked={allowTrashTalk}
-                          onChange={() => setAllowTrashTalk((previous) => !previous)}
-                        />
-                        <Toggle
-                          label="Round leader bonus"
-                          description="Reward the player holding the lead after each round."
-                          checked={bonusLeader}
-                          onChange={() => setBonusLeader((previous) => !previous)}
-                        />
-                        <Toggle
-                          label="Top 5 round bonus"
-                          description="Create extra leaderboard movement throughout the event."
-                          checked={bonusTop5}
-                          onChange={() => setBonusTop5((previous) => !previous)}
-                        />
-                        <Toggle
-                          label="Top 10 round bonus"
-                          description="Add smaller scoring moments for more teams."
-                          checked={bonusTop10}
-                          onChange={() => setBonusTop10((previous) => !previous)}
-                        />
-                        <Toggle
-                          label="Free group pool"
-                          description="Set the group buy-in to $0. Poolr access is handled separately."
-                          checked={allowFreePool}
-                          onChange={() => setAllowFreePool((previous) => !previous)}
-                        />
-                      </div>
-                    </GlassCard>
-                  </div>
+                  <Field label="Max Players" hint="Pool size">
+                    <TextInput
+                      type="number"
+                      min="2"
+                      value={maxPlayers}
+                      onChange={(event) => setMaxPlayers(event.target.value)}
+                    />
+                  </Field>
 
-                  <div className="flex flex-col gap-3 sm:flex-row">
-                    <button
-                      type="button"
-                      onClick={() => setStep("tournament")}
-                      className="rounded-[24px] border border-white/10 bg-white/5 px-6 py-3.5 text-sm font-black text-white transition hover:bg-white/10"
-                    >
-                      Back to Tournament
-                    </button>
-                    <button
-                      type="button"
-                      onClick={continueFromSetup}
-                      className="rounded-[24px] bg-emerald-400 px-6 py-3.5 text-sm font-black text-black transition hover:bg-emerald-300"
-                    >
-                      Review Pool
-                    </button>
+                  <div className="rounded-[24px] border border-white/10 bg-black/20 p-5">
+                    <p className="text-sm font-black text-white">Premium access</p>
+                    <p className="mt-2 text-sm leading-6 text-neutral-400">
+                      This pool uses the flagship Poolr creation flow. The creator unlocks
+                      the premium pool; everyone else joins and plays free.
+                    </p>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <FeaturePill label="FLAGSHIP FLOW" />
+                    </div>
                   </div>
                 </div>
-              ) : null}
 
-              {step === "unlock" ? (
-                <div className="space-y-8">
-                  <GlassCard className="p-6 sm:p-8">
-                    <SectionHeader
-                      eyebrow="Step 3"
-                      title="Review and launch"
-                      subtitle="Your pool is ready. Confirm Poolr access, then launch the lobby and share the invite code."
-                      right={
-                        <Badge variant={freePoolAvailable || hasActivePlan ? "success" : "muted"}>
-                          {loadingPoolrUser || loadingCreator
-                            ? "Loading"
-                            : hasActivePlan
-                              ? "Plan active"
-                              : freePoolAvailable
-                                ? "Free launch available"
-                                : "Checkout required"}
-                        </Badge>
-                      }
-                    />
+                {selectedTournament ? (
+                  <div className="mt-6 rounded-[26px] border border-emerald-400/20 bg-emerald-400/10 p-5">
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-emerald-300">
+                      Selected Tournament
+                    </p>
 
-                    <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                      <PricingCard
-                        title="Free First Pool"
-                        price="$0"
-                        description="Your first Poolr experience lets the group try the full product."
-                        selected={selectedPurchase === "free_first_pool"}
-                        disabled={!freePoolAvailable || hasActivePlan}
-                        badge={freePoolAvailable ? "Available" : "Used"}
-                        onClick={() => setSelectedPurchase("free_first_pool")}
-                      />
+                    <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                      <div>
+                        <h3 className="text-2xl font-black tracking-tight text-white">
+                          {selectedTournament.name}
+                        </h3>
 
-                      <PricingCard
-                        title="Single Pool"
-                        price="$9.99"
-                        description="Run one Poolr pool for one tournament."
-                        selected={selectedPurchase === "single_pool"}
-                        disabled={hasActivePlan}
-                        badge="Default"
-                        onClick={() => setSelectedPurchase("single_pool")}
-                      />
+                        <p className="mt-1 text-sm leading-6 text-neutral-300">
+                          {formatTournamentMeta(selectedTournament) ||
+                            "Tournament details ready"}
+                        </p>
+                      </div>
 
-                      <PricingCard
-                        title="Monthly Pro"
-                        price="$9.99/mo"
-                        description="Run unlimited pools while your plan is active."
-                        selected={selectedPurchase === "monthly"}
-                        badge="Unlimited"
-                        onClick={() => setSelectedPurchase("monthly")}
-                      />
-
-                      <PricingCard
-                        title="Annual Pro"
-                        price="$59.99/yr"
-                        description="Best value for serious groups that play all season."
-                        selected={selectedPurchase === "annual"}
-                        badge="Best Value"
-                        onClick={() => setSelectedPurchase("annual")}
-                      />
+                      <Badge variant={statusTone(selectedTournament.status) as "default" | "success" | "muted"}>
+                        {selectedTournament.status || "upcoming"}
+                      </Badge>
                     </div>
+                  </div>
+                ) : null}
+              </GlassCard>
 
-                    <div className="mt-6 rounded-[24px] border border-white/10 bg-black/20 p-5">
-                      <p className="text-sm font-black text-white">Poolr access</p>
-                      <p className="mt-2 text-sm leading-6 text-neutral-400">
-                        One creator unlocks the pool. Everyone else joins free. Group buy-ins are only tracked by the pool manager.
-                      </p>
-                    </div>
-                  </GlassCard>
+              <GlassCard className="p-6 sm:p-7">
+                <SectionHeader
+                  title="Format + Roster Rules"
+                  subtitle="The core game engine. Keep it clear and fair."
+                />
 
-                  <GlassCard className="p-6 sm:p-8">
-                    <SectionHeader
-                      title="What you get with Poolr"
-                      subtitle="Built for the tournament weekend: clear rules, fast invites, and a live game your group can follow together."
-                    />
-
-                    <div className="mt-8 grid gap-4 md:grid-cols-2">
-                      <PreviewRow label="Live standings" value="Leaderboard updates throughout the event" highlight />
-                      <PreviewRow label="Private picks" value="Rosters stay hidden until lock" />
-                      <PreviewRow label="Bonus moments" value={`${bonusCount} live scoring bonuses active`} />
-                      <PreviewRow label="Invite flow" value="Share one code or link with the group" />
-                    </div>
-                  </GlassCard>
-
-                  {(errorMessage || successMessage) && (
-                    <div
-                      className={cn(
-                        "rounded-[24px] border p-4",
-                        successMessage
-                          ? "border-emerald-400/20 bg-emerald-400/10"
-                          : "border-red-400/20 bg-red-400/10"
-                      )}
-                    >
-                      <p
+                <div className="mt-6 grid gap-6 md:grid-cols-2">
+                  <Field label="Draft Format">
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setDraftFormat("salary_cap")}
                         className={cn(
-                          "text-sm font-bold",
-                          successMessage ? "text-emerald-300" : "text-red-300"
+                          "rounded-[22px] border px-4 py-3.5 text-sm font-black transition",
+                          draftFormat === "salary_cap"
+                            ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"
+                            : "border-white/10 bg-black/20 text-white hover:border-white/20 hover:bg-white/[0.04]"
                         )}
                       >
-                        {successMessage || errorMessage}
-                      </p>
-                    </div>
-                  )}
+                        Salary Cap
+                      </button>
 
-                  <div className="flex flex-col gap-3 sm:flex-row">
-                    <button
-                      type="button"
-                      onClick={() => setStep("setup")}
-                      className="rounded-[24px] border border-white/10 bg-white/5 px-6 py-3.5 text-sm font-black text-white transition hover:bg-white/10"
+                      <button
+                        type="button"
+                        onClick={() => setDraftFormat("tiered_draft")}
+                        className={cn(
+                          "rounded-[22px] border px-4 py-3.5 text-sm font-black transition",
+                          draftFormat === "tiered_draft"
+                            ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"
+                            : "border-white/10 bg-black/20 text-white hover:border-white/20 hover:bg-white/[0.04]"
+                        )}
+                      >
+                        Tiered Draft
+                      </button>
+                    </div>
+                  </Field>
+
+                  <Field label="Roster Size" hint="Max 10">
+                    <SelectInput
+                      value={rosterSize}
+                      onChange={(event) => setRosterSize(Number(event.target.value))}
                     >
-                      Back to Rules
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleCreatePool}
-                      disabled={
-                        isSaving ||
-                        loadingTournaments ||
-                        loadingCreator ||
-                        loadingPoolrUser
-                      }
-                      className="rounded-[24px] bg-emerald-400 px-6 py-3.5 text-sm font-black text-black transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
+                      {ROSTER_OPTIONS.map((option) => (
+                        <option key={option} value={option} className="bg-[#061121]">
+                          {option} golfers
+                        </option>
+                      ))}
+                    </SelectInput>
+                  </Field>
+
+                  <Field label="Players Counted" hint="Best scores">
+                    <SelectInput
+                      value={playersCounted}
+                      onChange={(event) => setPlayersCounted(Number(event.target.value))}
                     >
-                      {isSaving ? "Launching Pool..." : launchLabel}
-                    </button>
-                    <Link
-                      href="/join-pool"
-                      className="rounded-[24px] border border-white/10 bg-white/5 px-6 py-3.5 text-center text-sm font-black text-white transition hover:bg-white/10"
-                    >
-                      Join Pool
-                    </Link>
+                      {countedOptions.map((option) => (
+                        <option key={option} value={option} className="bg-[#061121]">
+                          Best {option} count
+                        </option>
+                      ))}
+                    </SelectInput>
+                  </Field>
+
+                  {draftFormat === "salary_cap" ? (
+                    <Field label="Salary Cap" hint="Fake budget">
+                      <div className="relative">
+                        <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500">
+                          $
+                        </span>
+
+                        <TextInput
+                          type="number"
+                          min="1"
+                          value={salaryCap}
+                          onChange={(event) => setSalaryCap(event.target.value)}
+                          className="pl-9"
+                        />
+                      </div>
+                    </Field>
+                  ) : (
+                    <Field label="Tier Rule" hint="Default">
+                      <TextInput
+                        value={tierRule}
+                        onChange={(event) => setTierRule(event.target.value)}
+                        placeholder="1 player from each tier"
+                      />
+                    </Field>
+                  )}
+                </div>
+
+                <div className="mt-6 rounded-[24px] border border-white/10 bg-black/20 p-5">
+                  <p className="text-sm font-black text-white">Roster rule check</p>
+                  <p className="mt-2 text-sm leading-6 text-neutral-400">
+                    Each team picks {rosterSize} golfers. The best {playersCounted}
+                    {playersCounted === 1 ? " score counts" : " scores count"} toward
+                    the leaderboard.
+                  </p>
+                </div>
+              </GlassCard>
+
+              <GlassCard className="p-6 sm:p-7">
+                <SectionHeader
+                  title="Premium Features"
+                  subtitle="The features that make this feel like Poolr, not a spreadsheet."
+                />
+
+                <div className="mt-6 grid gap-6 lg:grid-cols-2">
+                  <div>
+                    <p className="text-sm font-black text-white">Live scoring extras</p>
+
+                    <div className="mt-4 grid gap-3">
+                      <Toggle
+                        label="Round leader bonus"
+                        description="Reward momentum when someone has the leader."
+                        checked={bonusLeader}
+                        onChange={() => setBonusLeader((previous) => !previous)}
+                      />
+                      <Toggle
+                        label="Top 5 round bonus"
+                        description="Create movement during each round."
+                        checked={bonusTop5}
+                        onChange={() => setBonusTop5((previous) => !previous)}
+                      />
+                      <Toggle
+                        label="Top 10 round bonus"
+                        description="Add smaller live scoring moments."
+                        checked={bonusTop10}
+                        onChange={() => setBonusTop10((previous) => !previous)}
+                      />
+                    </div>
                   </div>
 
-                  {createdCode ? (
-                    <GlassCard className="p-6 sm:p-7">
-                      <p className="text-[11px] uppercase tracking-[0.18em] text-neutral-500">
-                        Invite Link
-                      </p>
-                      <p className="mt-3 break-all text-lg font-black text-white">
-                        {createdInviteLink || previewJoinLink || createdCode}
-                      </p>
+                  <div>
+                    <p className="text-sm font-black text-white">Pool energy</p>
+
+                    <div className="mt-4 grid gap-3">
+                      <Toggle
+                        label="Live leaderboard"
+                        description="Make the pool feel active during the tournament."
+                        checked={showLiveLeaderboard}
+                        onChange={() =>
+                          setShowLiveLeaderboard((previous) => !previous)
+                        }
+                      />
+                      <Toggle
+                        label="Pool chat / trash talk"
+                        description="Keep the social side alive."
+                        checked={allowTrashTalk}
+                        onChange={() => setAllowTrashTalk((previous) => !previous)}
+                      />
+                      <Toggle
+                        label="Hide rosters until lock"
+                        description="Keep picks private until the tournament starts."
+                        checked={hideRostersUntilLock}
+                        onChange={() =>
+                          setHideRostersUntilLock((previous) => !previous)
+                        }
+                      />
+                      <Toggle
+                        label="Free group pool"
+                        description="Set the group buy-in to $0. This is separate from Poolr access."
+                        checked={allowFreePool}
+                        onChange={() => setAllowFreePool((previous) => !previous)}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {(errorMessage || successMessage) && (
+                  <div
+                    className={cn(
+                      "mt-6 rounded-[24px] border p-4",
+                      successMessage
+                        ? "border-emerald-400/20 bg-emerald-400/10"
+                        : "border-red-400/20 bg-red-400/10"
+                    )}
+                  >
+                    <p
+                      className={cn(
+                        "text-sm font-bold",
+                        successMessage ? "text-emerald-300" : "text-red-300"
+                      )}
+                    >
+                      {successMessage || errorMessage}
+                    </p>
+                  </div>
+                )}
+
+                <div className="mt-8 flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={handleCreatePool}
+                    disabled={
+                      isSaving ||
+                      loadingTournaments ||
+                      loadingCreator ||
+                      loadingPoolrUser
+                    }
+                    className="rounded-[24px] bg-emerald-500 px-6 py-3.5 text-sm font-black text-black transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isSaving ? "Launching Premium Pool..." : launchLabel}
+                  </button>
+
+                  <Link
+                    href="/join-pool"
+                    className="rounded-[24px] border border-white/10 bg-white/5 px-6 py-3.5 text-sm font-black text-white transition hover:bg-white/10"
+                  >
+                    Go to Join Pool
+                  </Link>
+                </div>
+
+                {createdCode ? (
+                  <div className="mt-6 rounded-[28px] border border-white/10 bg-black/20 p-5">
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-neutral-500">
+                      Invite Link
+                    </p>
+
+                    <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-3xl font-black tracking-[0.28em] text-white">
+                          {createdCode}
+                        </p>
+
+                        <p className="mt-2 break-all text-sm text-neutral-400">
+                          {createdInviteLink || previewJoinLink}
+                        </p>
+                      </div>
+
                       <button
                         type="button"
                         onClick={handleCopyCode}
-                        className="mt-5 rounded-[20px] bg-white px-5 py-3 text-sm font-black text-black transition hover:bg-white/90"
+                        className="rounded-[20px] border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-black text-white transition hover:bg-white/10"
                       >
-                        {copied ? "Copied" : "Copy Invite"}
+                        {copied ? "Copied" : "Copy Invite Link"}
                       </button>
-                    </GlassCard>
-                  ) : null}
-                </div>
-              ) : null}
+                    </div>
+
+                    <div className="mt-5 flex flex-wrap gap-3">
+                      {createdPoolId ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => router.push(`/pool/${createdPoolId}`)}
+                            className="rounded-[22px] bg-emerald-500 px-5 py-3 text-sm font-black text-black transition hover:bg-emerald-400"
+                          >
+                            Go to Pool Lobby
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              router.push(`/pool/${createdPoolId}/manage`)
+                            }
+                            className="rounded-[22px] border border-white/10 bg-white/5 px-5 py-3 text-sm font-black text-white transition hover:bg-white/10"
+                          >
+                            Manage Pool
+                          </button>
+                        </>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
+              </GlassCard>
             </section>
 
-            <SummaryPanel
-              selectedTournament={selectedTournament}
-              poolName={poolName}
-              entryFee={entryFeeNumber}
-              allowFreePool={allowFreePool}
-              draftFormat={draftFormat}
-              rosterSize={rosterSize}
-              playersCounted={playersCounted}
-              salaryCap={salaryCap}
-              maxPlayers={maxPlayers}
-              bonusCount={bonusCount}
-            />
+            <aside className="space-y-6">
+              <GlassCard className="sticky top-6 p-6 sm:p-7">
+                <SectionHeader
+                  title="Premium Pool Preview"
+                  subtitle="This should feel elite before anyone even joins."
+                />
+
+                <div className="mt-6 space-y-4">
+                  <PreviewRow
+                    label="Pool Name"
+                    value={poolName || "Untitled Premium Pool"}
+                    highlight
+                  />
+                  <PreviewRow
+                    label="Tournament"
+                    value={selectedTournament?.name || "No tournament selected"}
+                  />
+                  <PreviewRow
+                    label="Location"
+                    value={selectedTournamentMeta || "Course TBD"}
+                  />
+                  <PreviewRow
+                    label="Poolr Access"
+                    value={`${purchaseLabel(selectedPurchase)} — ${purchasePriceText(selectedPurchase)}`}
+                  />
+                  <PreviewRow
+                    label="Group Buy-In"
+                    value={
+                      allowFreePool || Number(entryFee) === 0
+                        ? "Free group pool"
+                        : formatCurrency(entryFee)
+                    }
+                  />
+                  <PreviewRow label="Format" value={displayFormat(draftFormat)} />
+                  <PreviewRow label="Roster Size" value={`${rosterSize} golfers`} />
+                  <PreviewRow label="Players Counted" value={`${playersCounted} count`} />
+                  <PreviewRow
+                    label={draftFormat === "salary_cap" ? "Salary Cap" : "Tier Rule"}
+                    value={
+                      draftFormat === "salary_cap"
+                        ? formatCurrency(salaryCap)
+                        : tierRule || "1 player from each tier"
+                    }
+                  />
+                  <PreviewRow
+                    label="Invite Link"
+                    value={createdCode ? createdCode : "Generated on launch"}
+                  />
+                </div>
+              </GlassCard>
+
+              <GlassCard className="p-6 sm:p-7">
+                <SectionHeader
+                  title="What This Premium Pool Unlocks"
+                  subtitle="The setup communicates emotion, competition, and quality."
+                />
+
+                <div className="mt-6 grid gap-3">
+                  <PreviewRow
+                    label="Live Leaderboard"
+                    value={showLiveLeaderboard ? "On — DataGolf-ready" : "Off"}
+                  />
+                  <PreviewRow
+                    label="Chat + Trash Talk"
+                    value={allowTrashTalk ? "On — social energy enabled" : "Off"}
+                  />
+                  <PreviewRow
+                    label="Roster Privacy"
+                    value={hideRostersUntilLock ? "Hidden until lock" : "Visible before start"}
+                  />
+                  <PreviewRow
+                    label="Bonus Scoring"
+                    value={`${bonusCount} live scoring bonus${
+                      bonusCount === 1 ? "" : "es"
+                    } active`}
+                  />
+                </div>
+              </GlassCard>
+
+              <GlassCard className="p-6 sm:p-7">
+                <SectionHeader
+                  title="Launch Checklist"
+                  subtitle="Everything this page saves when you launch."
+                />
+
+                <div className="mt-6 space-y-3">
+                  <PreviewRow label="Pool record" value="Saved to Supabase" />
+                  <PreviewRow label="Tournament ID" value="Connected correctly" />
+                  <PreviewRow label="Invite code" value="Generated automatically" />
+                  <PreviewRow label="Product access" value="Tracked in Supabase" />
+                  <PreviewRow label="Creator account" value="Connected to Poolr user" />
+                  <PreviewRow label="Join URL" value="/join-pool?code=CODE" />
+                  <PreviewRow label="Redirect" value="New pool lobby" />
+                </div>
+              </GlassCard>
+            </aside>
           </div>
         </div>
       </div>
