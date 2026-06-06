@@ -1,110 +1,108 @@
-import PageWrapper from "./components/PageWrapper";
-export default function Home() {
+import Link from "next/link";
+
+export default function HomePage() {
   return (
-    <PageWrapper>
-      <section className="mx-auto grid max-w-7xl items-center gap-14 px-8 py-20 md:px-12 lg:grid-cols-2 lg:py-28">
-        <div>
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-zinc-300">
-            <span className="h-2 w-2 rounded-full bg-emerald-400" />
-            Private pools, premium experience
-          </div>
-
-          <h1 className="max-w-4xl text-5xl font-semibold leading-[0.95] tracking-[-0.04em] md:text-7xl">
-            Build brackets.
-            <br />
-            Compete.
-            <br />
-            Win pools.
-          </h1>
-
-          <p className="mt-6 max-w-xl text-lg leading-8 text-zinc-400">
-            Create private pools with friends, track live leaderboards, and run a clean,
-            high-end experience across golf and beyond.
-          </p>
-
-          <div className="mt-10 flex flex-col gap-4 sm:flex-row">
-            <a
-              href="/login"
-              className="rounded-2xl bg-white px-7 py-4 font-medium text-black hover:scale-[1.02] transition text-center"
-            >
-              Start a Pool
-            </a>
-            <a
-              href="/live"
-              className="rounded-2xl border border-white/15 bg-white/5 px-7 py-4 font-medium text-white hover:bg-white/10 transition text-center"
-            >
-              View Demo
-            </a>
-          </div>
-
-          <div className="mt-10 grid max-w-xl grid-cols-3 gap-4">
-            {[
-              { value: "60 sec", label: "to create a pool" },
-              { value: "Live", label: "scoring updates" },
-              { value: "Private", label: "invite-only groups" },
-            ].map((item) => (
-              <div
-                key={item.label}
-                className="rounded-2xl border border-white/10 bg-white/[0.04] p-4"
-              >
-                <div className="text-2xl font-semibold">{item.value}</div>
-                <div className="mt-1 text-sm text-zinc-400">{item.label}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="relative">
-          <div className="absolute -inset-4 rounded-[2rem] bg-white/5 blur-2xl" />
-
-          <div className="relative rounded-[2rem] border border-white/10 bg-white/[0.06] p-4 backdrop-blur-xl shadow-2xl">
-            <div className="rounded-[1.5rem] border border-white/10 bg-[#0A0F1F] p-5">
-              <div className="flex items-center justify-between border-b border-white/10 pb-4">
-                <div>
-                  <p className="text-sm text-zinc-400">Featured Pool</p>
-                  <h3 className="mt-1 text-xl font-semibold">Weekend Championship Club</h3>
-                </div>
-                <div className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs text-emerald-300">
-                  Live
-                </div>
+    <main className="min-h-screen bg-neutral-950 text-white">
+      <section className="relative isolate overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.22),transparent_30%),radial-gradient(circle_at_top_right,rgba(59,130,246,0.14),transparent_28%),linear-gradient(to_bottom,rgba(255,255,255,0.03),transparent_35%)]" />
+        <div className="absolute inset-x-0 top-0 h-px bg-white/10" />
+        <div className="relative mx-auto max-w-7xl px-6 pb-16 pt-20 sm:pb-20 sm:pt-24 lg:px-8 lg:pt-28">
+          <div className="grid items-center gap-14 lg:grid-cols-[1.12fr_0.88fr]">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.22em] text-emerald-300">
+                <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                Built for premium golf pools
               </div>
 
-              <div className="mt-5 space-y-3">
-                {[
-                  ["#1", "AJ", "-14", "+2 today"],
-                  ["#2", "Mason", "-12", "+1 today"],
-                  ["#3", "Evan", "-11", "-1 today"],
-                  ["#4", "Luke", "-10", "+3 today"],
-                ].map(([rank, name, score, detail]) => (
-                  <div
-                    key={name}
-                    className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-4"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/5 text-sm font-semibold text-zinc-300">
-                        {rank}
-                      </div>
-                      <div>
-                        <div className="font-medium">{name}</div>
-                        <div className="text-sm text-zinc-400">{detail}</div>
-                      </div>
+              <h1 className="mt-6 max-w-5xl text-5xl font-bold tracking-tight sm:text-6xl lg:text-7xl">
+                Make every tournament feel bigger.
+              </h1>
+
+              <p className="mt-6 max-w-2xl text-base leading-7 text-neutral-300 sm:text-lg">
+                Poolr lets you create high-end golf pools with custom rules, salary cap or tiered
+                draft formats, invite codes, live competition, and a cleaner experience than the
+                spreadsheets and group chats people are stuck using now.
+              </p>
+
+              <div className="mt-8 flex flex-wrap gap-4">
+                <Link
+                  href="/create-pool"
+                  className="rounded-2xl bg-emerald-500 px-6 py-3.5 text-sm font-semibold text-black transition hover:bg-emerald-400"
+                >
+                  Create a Pool
+                </Link>
+
+                <Link
+                  href="/join-pool"
+                  className="rounded-2xl border border-white/10 bg-white/5 px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-white/10"
+                >
+                  Join with Code
+                </Link>
+              </div>
+
+              <div className="mt-10 grid max-w-3xl gap-4 sm:grid-cols-3">
+                <QuickStat value="Tiered Draft" label="or Salary Cap" />
+                <QuickStat value="Custom Rules" label="roster and scoring" />
+                <QuickStat value="Invite Code" label="fast private entry" />
+              </div>
+            </div>
+
+            <div className="relative">
+              <div className="absolute -inset-6 rounded-[36px] bg-emerald-500/10 blur-3xl" />
+              <div className="relative rounded-[30px] border border-white/10 bg-white/5 p-5 shadow-2xl shadow-black/40 backdrop-blur">
+                <div className="rounded-[26px] border border-white/10 bg-neutral-900 p-5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.22em] text-neutral-500">
+                        Featured Pool
+                      </p>
+                      <h2 className="mt-2 text-2xl font-bold">Masters Weekend Money Pool</h2>
                     </div>
-                    <div className="text-xl font-semibold text-white">{score}</div>
+                    <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-300">
+                      Live
+                    </span>
                   </div>
-                ))}
-              </div>
 
-              <div className="mt-5 grid grid-cols-2 gap-4">
-                <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-                  <div className="text-sm text-zinc-400">Pool Pot</div>
-                  <div className="mt-2 text-3xl font-semibold">$1,280</div>
-                  <div className="mt-2 text-xs text-zinc-500">64 entries</div>
-                </div>
+                  <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                    <InfoCard label="Format" value="Salary Cap" />
+                    <InfoCard label="Entry Fee" value="$25" />
+                    <InfoCard label="Roster Size" value="6 Golfers" />
+                    <InfoCard label="Counted" value="Top 3 Scores" />
+                  </div>
 
-                <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-                  <div className="text-sm text-zinc-400">Top Golfer</div>
-                  <div className="mt-2 text-3xl font-semibold text-emerald-300">-8</div>
-                  <div className="mt-2 text-xs text-zinc-500">Scheffler • thru 16</div>
+                  <div className="mt-5 rounded-2xl border border-white/10 bg-black/20 p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.18em] text-neutral-500">
+                          Invite Code
+                        </p>
+                        <p className="mt-2 text-2xl font-bold tracking-[0.28em] text-white">
+                          A7K9Q2
+                        </p>
+                      </div>
+                      <span className="rounded-full border border-sky-500/20 bg-sky-500/10 px-3 py-1 text-xs font-semibold text-sky-300">
+                        Private Pool
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 grid gap-3">
+                    <LiveRow
+                      name="Fairway Killers"
+                      detail="Top lineup today"
+                      points="412 pts"
+                    />
+                    <LiveRow
+                      name="Green Jacket Unit"
+                      detail="2 golfers inside top 10"
+                      points="398 pts"
+                    />
+                    <LiveRow
+                      name="Sunday Chasers"
+                      detail="Bonus points active"
+                      points="387 pts"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -112,44 +110,180 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-8 pb-24 md:px-12">
-        <div className="mb-10 max-w-2xl">
-          <p className="text-sm uppercase tracking-[0.25em] text-emerald-300/80">
-            Why Poolr
-          </p>
-          <h2 className="mt-3 text-3xl font-semibold tracking-tight md:text-4xl">
-            Everything built to feel premium.
-          </h2>
-          <p className="mt-4 text-lg text-zinc-400">
-            Clean design, live competition, and smooth commissioner controls for serious private pools.
-          </p>
-        </div>
-
-        <div className="grid gap-6 md:grid-cols-3">
-          {[
-            {
-              title: "Private pool creation",
-              desc: "Create polished invite-only pools in under a minute with clean setup and easy sharing.",
-            },
-            {
-              title: "Live scoreboards",
-              desc: "Track movement in real time with strong visual hierarchy and sharp leaderboard cards.",
-            },
-            {
-              title: "Built to expand",
-              desc: "Start with golf, then grow into March Madness, football playoffs, and more formats.",
-            },
-          ].map((item) => (
-            <div
-              key={item.title}
-              className="rounded-[1.75rem] border border-white/10 bg-white/[0.04] p-7 hover:border-white/20 transition"
-            >
-              <h3 className="text-xl font-semibold">{item.title}</h3>
-              <p className="mt-3 leading-7 text-zinc-400">{item.desc}</p>
-            </div>
-          ))}
+      <section className="mx-auto max-w-7xl px-6 py-6 lg:px-8">
+        <div className="grid gap-4 md:grid-cols-3">
+          <FeatureCard
+            title="Run it your way"
+            text="Set entry fee, roster size, counted golfers, scoring bonuses, visibility rules, and more."
+          />
+          <FeatureCard
+            title="Make it feel premium"
+            text="Private invite codes, sharper design, cleaner structure, and a format people actually want to use."
+          />
+          <FeatureCard
+            title="More fun for everyone"
+            text="Built for serious competition, trash talk, strategy, and the energy that makes tournament weekends better."
+          />
         </div>
       </section>
-    </PageWrapper>
+
+      <section className="mx-auto max-w-7xl px-6 py-12 lg:px-8">
+        <div className="rounded-[34px] border border-white/10 bg-white/5 p-8 sm:p-10">
+          <div className="grid gap-10 lg:grid-cols-[0.95fr_1.05fr]">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-300">
+                Why people will choose Poolr
+              </p>
+              <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
+                It fixes everything that usually makes pools feel sloppy.
+              </h2>
+              <p className="mt-4 max-w-xl text-neutral-300">
+                Most pools are run through texts, spreadsheets, scattered payments, and rules that
+                no one can remember. Poolr makes the whole thing feel organized, competitive, and
+                worth getting excited about.
+              </p>
+
+              <div className="mt-6 space-y-3">
+                <BenefitRow text="Cleaner than spreadsheets" />
+                <BenefitRow text="Better than random group chat updates" />
+                <BenefitRow text="Easy for casual users, deep enough for serious players" />
+                <BenefitRow text="Designed to feel like a real premium platform" />
+              </div>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <MiniPanel
+                title="Tiered Draft"
+                text="Simple, clean, and easy for any group to understand."
+              />
+              <MiniPanel
+                title="Salary Cap"
+                text="More strategy, more edge, and a stronger competitive feel."
+              />
+              <MiniPanel
+                title="Custom Scoring"
+                text="Use counted-player rules, bonuses, and pool-specific settings."
+              />
+              <MiniPanel
+                title="Fast Invite Flow"
+                text="Create a pool, share the code, and fill it quickly."
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-7xl px-6 py-4 lg:px-8">
+        <div className="grid gap-4 lg:grid-cols-3">
+          <BigNumberCard number="4, 6, 8, 10" label="roster sizes supported" />
+          <BigNumberCard number="2 formats" label="tiered draft or salary cap" />
+          <BigNumberCard number="1 clean code" label="simple private pool entry" />
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-7xl px-6 pb-24 pt-12 lg:px-8">
+        <div className="rounded-[34px] border border-emerald-500/20 bg-emerald-500/10 p-8 text-center sm:p-12">
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-300">
+            Start now
+          </p>
+          <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-5xl">
+            Set the rules. Share the code. Make the tournament matter more.
+          </h2>
+          <p className="mx-auto mt-4 max-w-2xl text-sm leading-6 text-neutral-300 sm:text-base">
+            Poolr is built to make golf pools feel sharper, more competitive, and more worth
+            talking about all weekend long.
+          </p>
+
+          <div className="mt-8 flex flex-wrap justify-center gap-4">
+            <Link
+              href="/create-pool"
+              className="rounded-2xl bg-emerald-500 px-6 py-3.5 text-sm font-semibold text-black transition hover:bg-emerald-400"
+            >
+              Create a Pool
+            </Link>
+            <Link
+              href="/join-pool"
+              className="rounded-2xl border border-white/10 bg-black/20 px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-white/10"
+            >
+              Join a Pool
+            </Link>
+          </div>
+        </div>
+      </section>
+    </main>
+  );
+}
+
+function QuickStat({ value, label }: { value: string; label: string }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+      <p className="text-sm font-semibold text-white">{value}</p>
+      <p className="mt-1 text-xs uppercase tracking-[0.18em] text-neutral-500">{label}</p>
+    </div>
+  );
+}
+
+function InfoCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+      <p className="text-xs uppercase tracking-[0.18em] text-neutral-500">{label}</p>
+      <p className="mt-1 text-sm font-semibold text-white">{value}</p>
+    </div>
+  );
+}
+
+function LiveRow({
+  name,
+  detail,
+  points,
+}: {
+  name: string;
+  detail: string;
+  points: string;
+}) {
+  return (
+    <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
+      <div>
+        <p className="text-sm font-semibold text-white">{name}</p>
+        <p className="mt-1 text-xs text-neutral-500">{detail}</p>
+      </div>
+      <p className="text-sm font-semibold text-emerald-300">{points}</p>
+    </div>
+  );
+}
+
+function FeatureCard({ title, text }: { title: string; text: string }) {
+  return (
+    <div className="rounded-[28px] border border-white/10 bg-white/5 p-6">
+      <h3 className="text-lg font-semibold text-white">{title}</h3>
+      <p className="mt-2 text-sm leading-6 text-neutral-400">{text}</p>
+    </div>
+  );
+}
+
+function BenefitRow({ text }: { text: string }) {
+  return (
+    <div className="flex items-start gap-3 rounded-2xl border border-white/10 bg-black/20 p-4">
+      <div className="mt-1 h-2.5 w-2.5 rounded-full bg-emerald-400" />
+      <p className="text-sm text-neutral-200">{text}</p>
+    </div>
+  );
+}
+
+function MiniPanel({ title, text }: { title: string; text: string }) {
+  return (
+    <div className="rounded-[26px] border border-white/10 bg-black/20 p-5">
+      <p className="text-base font-semibold text-white">{title}</p>
+      <p className="mt-2 text-sm leading-6 text-neutral-400">{text}</p>
+    </div>
+  );
+}
+
+function BigNumberCard({ number, label }: { number: string; label: string }) {
+  return (
+    <div className="rounded-[28px] border border-white/10 bg-white/5 p-6 text-center">
+      <p className="text-3xl font-bold tracking-tight text-white">{number}</p>
+      <p className="mt-2 text-sm uppercase tracking-[0.18em] text-neutral-500">{label}</p>
+    </div>
   );
 }

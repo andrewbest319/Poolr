@@ -8,9 +8,15 @@ export default function Footer() {
         </div>
 
         <div className="flex gap-6">
-          <a href="/" className="hover:text-white transition">Home</a>
-          <a href="/pricing" className="hover:text-white transition">Pricing</a>
-          <a href="/login" className="hover:text-white transition">Login</a>
+          <a href="/" className="transition hover:text-white">
+            Home
+          </a>
+          <a href="/pricing" className="transition hover:text-white">
+            Pricing
+          </a>
+          <a href="/login" className="transition hover:text-white">
+            Login
+          </a>
         </div>
       </div>
     </footer>
