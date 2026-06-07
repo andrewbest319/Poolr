@@ -440,10 +440,21 @@ export default function BuildTeamPage() {
         .from("golfers")
         .select("id, name, salary, tier, country, world_rank, tournament_id");
 
-      const fallbackGolfers = ((golferRows ?? []) as Golfer[]).filter((golfer) => {
+      const allGolfers = (golferRows ?? []) as Golfer[];
+
+      const tournamentGolfers = allGolfers.filter((golfer) => {
         if (!loadedPool.tournament_id) return true;
         return !golfer.tournament_id || golfer.tournament_id === loadedPool.tournament_id;
       });
+
+      // If this tournament does not have an imported field yet, fall back to the global golfer board
+      // so the Build Team page never opens empty.
+      const hasTournamentSpecificGolfers =
+        tournamentGolfers.length > 0 || scoreGolfers.length > 0;
+
+      const fallbackGolfers = hasTournamentSpecificGolfers
+        ? tournamentGolfers
+        : allGolfers;
 
       const combined = new Map<string, Golfer>();
 
