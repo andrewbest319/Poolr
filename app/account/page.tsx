@@ -32,8 +32,14 @@ function AccountPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const returnTo = searchParams.get("returnTo") || "/create-pool";
+const rawReturnTo = searchParams.get("returnTo");
 
+const returnTo =
+  rawReturnTo === "/pools/create" || rawReturnTo?.startsWith("/pools/create?")
+    ? rawReturnTo.replace("/pools/create", "/create-pool")
+    : rawReturnTo && rawReturnTo.startsWith("/") && !rawReturnTo.startsWith("//")
+      ? rawReturnTo
+      : "/create-pool";
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
