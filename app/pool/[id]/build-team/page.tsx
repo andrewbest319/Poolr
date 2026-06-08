@@ -54,6 +54,9 @@ type Golfer = {
   name: string;
   salary: number | null;
   tier: number | null;
+  win_odds?: string | number | null;
+  top_5_odds?: string | number | null;
+  top_10_odds?: string | number | null;
   country: string | null;
   world_rank: number | null;
   tournament_id: string | null;
@@ -71,6 +74,9 @@ type PlayerPrice = {
   tournament_id: string | null;
   salary: number | null;
   tier: number | null;
+  win_odds: string | number | null;
+  top_5_odds: string | number | null;
+  top_10_odds: string | number | null;
 };
 
 function cn(...classes: Array<string | false | null | undefined>) {
@@ -83,6 +89,53 @@ function money(value: number | null | undefined) {
   }
 
   return `$${Number(value).toLocaleString()}`;
+}
+
+function formatOdds(value: string | number | null | undefined) {
+  if (value === null || value === undefined || value === "") return "Odds pending";
+
+  const raw = String(value).trim();
+
+  if (!raw || raw === "null" || raw === "undefined") return "Odds pending";
+  if (raw.startsWith("+") || raw.startsWith("-")) return raw;
+
+  const num = Number(raw);
+  if (Number.isNaN(num)) return raw;
+
+  return num > 0 ? `+${num}` : `${num}`;
+}
+
+
+function OddsBadge({
+  odds,
+  compact = false,
+}: {
+  odds: string | number | null | undefined;
+  compact?: boolean;
+}) {
+  const label = formatOdds(odds);
+  const hasOdds = label !== "Odds pending";
+
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] shadow-[0_0_24px_rgba(16,185,129,0.12)]",
+        hasOdds
+          ? "border-emerald-300/25 bg-emerald-300/10 text-emerald-200"
+          : "border-white/10 bg-white/[0.04] text-white/40",
+        compact && "px-2 py-0.5 text-[9px]"
+      )}
+      title={hasOdds ? `${label} odds to win` : "Tournament odds pending"}
+    >
+      <span
+        className={cn(
+          "h-1.5 w-1.5 rounded-full",
+          hasOdds ? "bg-emerald-300" : "bg-white/25"
+        )}
+      />
+      {hasOdds ? `${label} to win` : "Odds pending"}
+    </span>
+  );
 }
 
 function normalizeName(name: string | null | undefined) {
@@ -395,7 +448,7 @@ export default function BuildTeamPage() {
       if (loadedPool.tournament_id) {
         const { data: priceData } = await supabase
           .from("player_prices")
-          .select("golfer_id, tournament_id, salary, tier")
+          .select("golfer_id, tournament_id, salary, tier, win_odds, top_5_odds, top_10_odds")
           .eq("tournament_id", loadedPool.tournament_id);
 
         for (const price of (priceData ?? []) as PlayerPrice[]) {
@@ -428,6 +481,9 @@ export default function BuildTeamPage() {
             name: displayNameFromScore(row.player_name),
             salary: price?.salary ?? null,
             tier: price?.tier ?? null,
+            win_odds: price?.win_odds ?? null,
+            top_5_odds: price?.top_5_odds ?? null,
+            top_10_odds: price?.top_10_odds ?? null,
             country: null,
             world_rank: null,
             tournament_id: row.tournament_id,
@@ -465,6 +521,9 @@ export default function BuildTeamPage() {
           ...golfer,
           salary: price?.salary ?? golfer.salary ?? defaultSalary(index),
           tier: price?.tier ?? golfer.tier ?? defaultTier(index),
+          win_odds: price?.win_odds ?? golfer.win_odds ?? null,
+          top_5_odds: price?.top_5_odds ?? golfer.top_5_odds ?? null,
+          top_10_odds: price?.top_10_odds ?? golfer.top_10_odds ?? null,
           source: "golfers",
         });
       });
@@ -482,6 +541,9 @@ export default function BuildTeamPage() {
             existing?.salary ??
             defaultSalary(index),
           tier: price?.tier ?? golfer.tier ?? existing?.tier ?? defaultTier(index),
+          win_odds: price?.win_odds ?? golfer.win_odds ?? existing?.win_odds ?? null,
+          top_5_odds: price?.top_5_odds ?? golfer.top_5_odds ?? existing?.top_5_odds ?? null,
+          top_10_odds: price?.top_10_odds ?? golfer.top_10_odds ?? existing?.top_10_odds ?? null,
           country: existing?.country ?? golfer.country ?? null,
           world_rank: existing?.world_rank ?? golfer.world_rank ?? null,
         });
@@ -1008,9 +1070,10 @@ export default function BuildTeamPage() {
                   >
                     <div className="flex items-center justify-between gap-3">
                       <div>
-                        <p className="text-sm font-black text-white">
-                          {index + 1}. {golfer.name}
-                        </p>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-sm font-black text-white">{index + 1}. {golfer.name}</p>
+                          <OddsBadge odds={golfer.win_odds} compact />
+                        </div>
 
                         <p className="mt-1 text-xs text-slate-500">
                           {golfer.country ?? "DataGolf"}
@@ -1119,7 +1182,10 @@ export default function BuildTeamPage() {
                     >
                       <div className="flex items-start justify-between gap-4">
                         <div>
-                          <p className="text-lg font-black text-white">{golfer.name}</p>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="text-lg font-black text-white">{golfer.name}</p>
+                            <OddsBadge odds={golfer.win_odds} />
+                          </div>
 
                           <p className="mt-1 text-xs text-slate-500">
                             {sourceLabel}
