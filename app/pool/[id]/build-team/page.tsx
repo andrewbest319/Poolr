@@ -487,10 +487,34 @@ export default function BuildTeamPage() {
         });
       });
 
-      const finalGolfers = Array.from(combined.values()).sort((a, b) => {
+      const sortedGolfers = Array.from(combined.values()).sort((a, b) => {
         const salaryA = Number(a.salary ?? 0);
         const salaryB = Number(b.salary ?? 0);
-        return salaryB - salaryA;
+
+        if (salaryB !== salaryA) return salaryB - salaryA;
+
+        const rankA = Number(a.world_rank ?? 9999);
+        const rankB = Number(b.world_rank ?? 9999);
+
+        if (rankA !== rankB) return rankA - rankB;
+
+        return String(a.name || "").localeCompare(String(b.name || ""));
+      });
+
+      const tierCount = 6;
+      const tierSize = Math.max(1, Math.ceil(sortedGolfers.length / tierCount));
+
+      const finalGolfers = sortedGolfers.map((golfer, index) => {
+        const importedTier = golfer.id ? priceMap.get(golfer.id)?.tier : null;
+        const autoTier = Math.min(tierCount, Math.floor(index / tierSize) + 1);
+
+        return {
+          ...golfer,
+          salary: golfer.salary ?? defaultSalary(index),
+          // Trust real tournament-specific imported tiers first.
+          // Otherwise, auto-tier the board after sorting so Tier 1 = best golfers.
+          tier: importedTier ?? autoTier,
+        };
       });
 
       setGolfers(finalGolfers);
