@@ -30,6 +30,10 @@ type Pool = {
   invite_code?: string | null;
   payment_status?: string | null;
   purchase_type?: string | null;
+  is_locked?: boolean | null;
+  locked_at?: string | null;
+  unlocked_at?: string | null;
+  lock_note?: string | null;
   [key: string]: unknown;
 };
 
@@ -486,23 +490,31 @@ export default function ManagePoolPage() {
 
   const [inviteCode, setInviteCode] = useState("");
 
-  const isLocked = useMemo(() => {
+  const lockDateTime = useMemo(() => {
+    const timestamp = buildTimestamp(lockDate, lockTime);
+    if (!timestamp) return null;
+
+    const date = new Date(timestamp.replace(" ", "T"));
+    return Number.isNaN(date.getTime()) ? null : date;
+  }, [lockDate, lockTime]);
+
+  const tournamentStarted = useMemo(() => {
     const lower = String(status ?? "").toLowerCase();
 
     return (
-      lower === "locked" ||
       lower === "live" ||
       lower === "final" ||
-      (!!lockDate &&
-        !!lockTime &&
-        new Date(`${lockDate}T${lockTime}:00`).getTime() <= Date.now())
+      (!!lockDateTime && lockDateTime.getTime() <= Date.now())
     );
-  }, [status, lockDate, lockTime]);
+  }, [status, lockDateTime]);
 
-const isCreator =
-  !!pool &&
-  !!poolrUserId &&
-  (!pool.creator_poolr_user_id || pool.creator_poolr_user_id === poolrUserId);
+  const manualPoolLocked = pool?.is_locked === true;
+  const isLocked = manualPoolLocked || tournamentStarted;
+
+  const isCreator =
+    !!pool &&
+    !!poolrUserId &&
+    (!pool.creator_poolr_user_id || pool.creator_poolr_user_id === poolrUserId);
 
   useEffect(() => {
     async function requirePoolrAccount() {
@@ -970,34 +982,45 @@ const isCreator =
     }
   }
 
-  async function lockPoolNow() {
-    if (!pool?.tournament_id) return;
+  async function updatePoolLock(action: "lock" | "unlock") {
+    if (!pool?.id) return;
 
     setSaving(true);
     setError("");
     setNotice("");
 
     try {
-      const now = new Date();
-      const pad = (n: number) => String(n).padStart(2, "0");
-      const timestamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(
-        now.getDate()
-      )} ${pad(now.getHours())}:${pad(now.getMinutes())}:00`;
+      const creatorDemoUserId =
+        typeof window !== "undefined"
+          ? localStorage.getItem("poolr_demo_user_id") ||
+            localStorage.getItem("demo_user_id") ||
+            ""
+          : "";
 
-      const { error: updateError } = await supabase
-        .from("tournaments")
-        .update({
-          status: "Locked",
-          lock_time: timestamp,
-        })
-        .eq("id", pool.tournament_id);
+      const response = await fetch(`/api/pools/${pool.id}/lock`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          action,
+          creatorPoolrUserId: poolrUserId,
+          creatorDemoUserId,
+        }),
+      });
 
-      if (updateError) throw new Error(updateError.message);
+      const result = await response.json();
 
-      setNotice("Pool locked.");
+      if (!response.ok) {
+        throw new Error(result?.error || "Failed to update pool lock.");
+      }
+
+      setNotice(action === "lock" ? "Pool locked." : "Pool unlocked.");
       await loadManagePage();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to lock pool.");
+      setError(
+        err instanceof Error ? err.message : "Failed to update pool lock."
+      );
     } finally {
       setSaving(false);
     }
@@ -1614,12 +1637,66 @@ if (!isCreator) {
               </div>
             </SectionCard>
 
+            <SectionCard title="Pool Lock" subtitle="Control when members can join or edit picks.">
+              <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="text-sm font-black text-white">
+                      {isLocked ? "Pool Locked" : "Pool Open"}
+                    </p>
+                    <p className="mt-2 text-sm leading-6 text-slate-400">
+                      You can manually lock or unlock this pool before the tournament starts.
+                      Once the tournament starts, the pool is hard locked and cannot be reopened.
+                    </p>
+                  </div>
+
+                  <StatusPill tone={isLocked ? "red" : "green"}>
+                    {tournamentStarted
+                      ? "TOURNAMENT LOCK"
+                      : manualPoolLocked
+                        ? "MANUAL LOCK"
+                        : "OPEN"}
+                  </StatusPill>
+                </div>
+
+                <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                  <ActionButton
+                    variant="danger"
+                    onClick={() => updatePoolLock("lock")}
+                    disabled={saving || manualPoolLocked || tournamentStarted || !isCreator}
+                    className="w-full"
+                  >
+                    {manualPoolLocked ? "Manually Locked" : "Lock Pool"}
+                  </ActionButton>
+
+                  <ActionButton
+                    variant="secondary"
+                    onClick={() => updatePoolLock("unlock")}
+                    disabled={saving || !manualPoolLocked || tournamentStarted || !isCreator}
+                    className="w-full"
+                  >
+                    {tournamentStarted ? "Unlock Closed" : "Unlock Pool"}
+                  </ActionButton>
+                </div>
+
+                <p className="mt-3 text-xs leading-5 text-slate-500">
+                  {tournamentStarted
+                    ? "Tournament has started. Teams are locked and the pool cannot be unlocked."
+                    : manualPoolLocked
+                      ? "Pool is manually locked. You can still unlock it before tournament start."
+                      : "Pool is open. Members can still join and edit picks before tournament start."}
+                </p>
+
+                {pool.lock_note ? (
+                  <p className="mt-2 text-xs leading-5 text-slate-500">
+                    Last lock note: {String(pool.lock_note)}
+                  </p>
+                ) : null}
+              </div>
+            </SectionCard>
+
             <SectionCard title="Danger Zone" subtitle="Actions that materially change the pool.">
               <div className="grid gap-3">
-                <ActionButton variant="danger" onClick={lockPoolNow} disabled={saving || isLocked}>
-                  {isLocked ? "Pool Already Locked" : "Lock Pool Now"}
-                </ActionButton>
-
                 <ActionButton
                   variant="ghost"
                   onClick={() =>
