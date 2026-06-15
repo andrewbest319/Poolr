@@ -41,7 +41,7 @@ const plans = [
     ],
     href: "/create-pool?purchase=single",
     cta: "Buy Single Pool",
-    featured: true,
+    featured: false,
     plan: "single" as const,
   },
   {
@@ -62,7 +62,7 @@ const plans = [
     ],
     href: "/create-pool?purchase=monthly",
     cta: "Start Monthly Pro",
-    featured: false,
+    featured: true,
     plan: "monthly" as const,
   },
 ];
