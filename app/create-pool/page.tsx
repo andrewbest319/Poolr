@@ -37,6 +37,21 @@ type PoolrUser = {
   full_name: string;
   email: string;
   phone?: string | null;
+  has_used_free_pool_experience?: boolean | null;
+  first_pool_id?: string | null;
+  first_entry_id?: string | null;
+  last_pool_created_at?: string | null;
+  last_pool_joined_at?: string | null;
+  subscription_status?: string | null;
+  pro_status?: string | null;
+  plan?: string | null;
+  poolr_plan?: string | null;
+  stripe_subscription_status?: string | null;
+  pro_active_until?: string | null;
+  is_pro?: boolean | null;
+  pro_active?: boolean | null;
+  unlimited_pools?: boolean | null;
+  single_pool_credits?: number | string | null;
 };
 
 type CreatedPool = {
@@ -183,6 +198,77 @@ function formatCap(value: string) {
 
 function displayFormat(format: DraftFormat) {
   return format === "tiered_draft" ? "Tiered Draft" : "Salary Cap";
+}
+
+function hasActiveProAccess(user: PoolrUser | null) {
+  if (!user) return false;
+
+  const rawUser = user as unknown as Record<string, unknown>;
+
+  const statusValues = [
+    rawUser.subscription_status,
+    rawUser.pro_status,
+    rawUser.billing_status,
+    rawUser.stripe_subscription_status,
+  ]
+    .map((value) => String(value ?? "").toLowerCase())
+    .filter(Boolean);
+
+  const planValues = [
+    rawUser.poolr_plan,
+    rawUser.plan,
+    rawUser.plan_type,
+    rawUser.subscription_plan,
+    rawUser.purchase_type,
+  ]
+    .map((value) => String(value ?? "").toLowerCase())
+    .filter(Boolean);
+
+  const booleanAccess =
+    rawUser.is_pro === true ||
+    rawUser.pro_active === true ||
+    rawUser.unlimited_pools === true ||
+    rawUser.monthly_pro === true ||
+    rawUser.annual_pro === true;
+
+  const activeStatus = statusValues.some((value) =>
+    ["active", "trialing", "pro"].includes(value)
+  );
+
+  const proPlan = planValues.some(
+    (value) =>
+      value.includes("monthly_pro") ||
+      value.includes("annual_pro") ||
+      value === "monthly" ||
+      value === "annual" ||
+      (value.includes("pro") && !value.includes("single"))
+  );
+
+  const proActiveUntil = rawUser.pro_active_until
+    ? new Date(String(rawUser.pro_active_until)).getTime()
+    : 0;
+
+  const futureProAccess =
+    Number.isFinite(proActiveUntil) && proActiveUntil > Date.now();
+
+  return booleanAccess || proPlan || activeStatus || futureProAccess;
+}
+function availableSinglePoolCredits(user: PoolrUser | null) {
+  if (!user) return 0;
+
+  const rawUser = user as unknown as Record<string, unknown>;
+  const value =
+    user.single_pool_credits ??
+    (rawUser.pool_credits as number | string | null | undefined) ??
+    (rawUser.single_pool_purchases_remaining as number | string | null | undefined);
+
+  const credits = Number(value ?? 0);
+
+  return Number.isFinite(credits) ? credits : 0;
+}
+
+function hasUsedFreeExperience(user: PoolrUser | null) {
+  return user?.has_used_free_pool_experience === true;
 }
 
 function Badge({ children, tone = "dark" }: { children: ReactNode; tone?: "green" | "gold" | "blue" | "dark" }) {
@@ -508,6 +594,28 @@ export default function CreatePoolPage() {
   }, [tournaments]);
 
   const selectedTournamentMeta = formatTournamentMeta(selectedTournament);
+  const userHasProAccess = hasActiveProAccess(poolrUser);
+  const userHasSinglePoolCredit = availableSinglePoolCredits(poolrUser) > 0;
+  const userHasUsedFreeExperience = hasUsedFreeExperience(poolrUser);
+  const usingFreeFirstPool =
+    Boolean(poolrUser) && !userHasUsedFreeExperience && !userHasProAccess;
+  const mustPayBeforeCreate =
+    Boolean(poolrUser) &&
+    userHasUsedFreeExperience &&
+    !userHasProAccess &&
+    !userHasSinglePoolCredit;
+  const pricingHref = `/pricing?returnTo=${encodeURIComponent(CREATE_POOL_PATH)}`;
+  const createButtonLabel = mustPayBeforeCreate
+    ? "Choose Paid Plan"
+    : isSaving
+      ? "Creating..."
+      : usingFreeFirstPool
+        ? "Create Free First Pool"
+        : userHasProAccess
+          ? "Create With Pro"
+          : userHasSinglePoolCredit
+            ? "Create With Single Pool Credit"
+            : "Create Pool";
   const previewJoinLink =
     createdCode && typeof window !== "undefined"
       ? `${window.location.origin}/join-pool?code=${encodeURIComponent(createdCode)}`
@@ -575,6 +683,9 @@ export default function CreatePoolPage() {
 
   function validateForm() {
     if (!poolrUserId) return "Create your Poolr account before creating a pool.";
+    if (mustPayBeforeCreate) {
+      return "You already used your free Poolr experience. Choose Single Pool or Pro before creating another pool.";
+    }
     if (!poolName.trim()) return "Enter a pool name.";
     if (!selectedTournamentId) return "Select a tournament.";
 
@@ -695,7 +806,51 @@ export default function CreatePoolPage() {
     }
   }
 
+  async function finalizeCreatorEntitlementAfterPoolCreate(poolId: string) {
+    if (!poolrUserId || !poolrUser) return;
+
+    const updatePayload: Record<string, unknown> = {
+      last_pool_created_at: new Date().toISOString(),
+    };
+
+    if (usingFreeFirstPool) {
+      updatePayload.has_used_free_pool_experience = true;
+
+      if (!poolrUser.first_pool_id) {
+        updatePayload.first_pool_id = poolId;
+      }
+    }
+
+    if (!usingFreeFirstPool && !userHasProAccess && userHasSinglePoolCredit) {
+      const remainingCredits = Math.max(availableSinglePoolCredits(poolrUser) - 1, 0);
+      updatePayload.single_pool_credits = remainingCredits;
+      updatePayload.poolr_plan = remainingCredits > 0 ? "single_pool_credit" : "free";
+    }
+
+    const { data, error } = await supabase
+      .from("poolr_users")
+      .update(updatePayload)
+      .eq("id", poolrUserId)
+      .select("*")
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(
+        `Pool was created, but Poolr could not update your account entitlement: ${error.message}`
+      );
+    }
+
+    if (data) {
+      setPoolrUser(data as PoolrUser);
+    }
+  }
+
   async function handleCreatePool() {
+    if (mustPayBeforeCreate) {
+      router.push(pricingHref);
+      return;
+    }
+
     const validationError = validateForm();
 
     if (validationError) {
@@ -711,6 +866,17 @@ export default function CreatePoolPage() {
     try {
       const inviteCode = await createUniqueInviteCode();
       const groupEntryFee = allowFreePool ? 0 : Number.parseFloat(entryFee || "0");
+      const purchaseType = usingFreeFirstPool
+        ? "free_first_pool"
+        : userHasProAccess
+          ? "pro_included"
+          : userHasSinglePoolCredit
+            ? "single_pool_credit"
+            : "paid_required";
+      const paymentStatus =
+        usingFreeFirstPool || userHasProAccess || userHasSinglePoolCredit
+          ? "unlocked"
+          : "payment_required";
 
       const payload = {
         name: poolName.trim(),
@@ -726,15 +892,22 @@ export default function CreatePoolPage() {
         tournament_id: selectedTournamentId,
         creator_poolr_user_id: poolrUserId,
         creator_demo_user_id: creatorDemoUserId,
-        payment_status: "setup_created",
-        billing_status: "setup_created",
-        premium_unlocked_reason: "pool_setup_started",
-        created_by_free_experience: false,
-        purchase_type: "setup_created",
+        payment_status: paymentStatus,
+        billing_status: paymentStatus,
+        premium_unlocked_reason: usingFreeFirstPool
+          ? "free_first_pool"
+          : userHasProAccess
+            ? "pro_plan"
+            : userHasSinglePoolCredit
+              ? "single_pool_credit"
+              : "payment_required",
+        created_by_free_experience: usingFreeFirstPool,
+        purchase_type: purchaseType,
       };
 
       const createdPool = await insertPoolWithFallback(payload);
       await saveOptionalFeatureSettings(createdPool.id);
+      await finalizeCreatorEntitlementAfterPoolCreate(createdPool.id);
 
       const finalInviteCode = createdPool.invite_code || inviteCode;
       const inviteLink =
@@ -775,6 +948,10 @@ export default function CreatePoolPage() {
                 <div className="flex flex-wrap items-center gap-3">
                   <Badge tone="green">Create Pool</Badge>
                   <Badge tone="dark">Tournament Setup</Badge>
+                  {usingFreeFirstPool ? <Badge tone="blue">Free First Pool</Badge> : null}
+                  {userHasProAccess ? <Badge tone="gold">Pro Access</Badge> : null}
+                  {!userHasProAccess && userHasSinglePoolCredit ? <Badge tone="blue">Single Pool Credit</Badge> : null}
+                  {mustPayBeforeCreate ? <Badge tone="gold">Paid Pool Required</Badge> : null}
                 </div>
                 <h1 className="mt-6 max-w-4xl text-4xl font-black tracking-tight text-white sm:text-5xl lg:text-6xl">
                   Create your pool.
@@ -791,6 +968,32 @@ export default function CreatePoolPage() {
               </div>
             </div>
           </header>
+
+          {mustPayBeforeCreate ? (
+            <div className="mb-6 rounded-[30px] border border-amber-300/25 bg-amber-300/[0.08] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.24em] text-amber-200">
+                    Free pool already used
+                  </p>
+                  <h2 className="mt-2 text-2xl font-black text-white">
+                    Choose Single Pool or Pro to create another pool.
+                  </h2>
+                  <p className="mt-2 max-w-3xl text-sm leading-6 text-neutral-300">
+                    Every Poolr account gets one free premium pool lifetime. Your first pool has already been used, so the next pool must be unlocked with Single Pool, Monthly Pro, or Annual Pro.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => router.push(pricingHref)}
+                  className="rounded-[20px] bg-amber-300 px-6 py-4 text-sm font-black uppercase tracking-[0.14em] text-black transition hover:bg-amber-200"
+                >
+                  View Plans
+                </button>
+              </div>
+            </div>
+          ) : null}
 
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start">
             <div className="space-y-6">
@@ -1052,6 +1255,18 @@ export default function CreatePoolPage() {
                   />
                   <PreviewRow label="Entries" value={`Up to ${maxPlayers}`} />
                   <PreviewRow label="Buy-in" value={allowFreePool ? "$0" : formatCurrency(entryFee)} />
+                  <PreviewRow
+                    label="Poolr access"
+                    value={
+                      usingFreeFirstPool
+                        ? "Free first pool"
+                        : userHasProAccess
+                          ? "Included with Pro"
+                          : userHasSinglePoolCredit
+                            ? "Single pool credit"
+                            : "Paid plan required"
+                    }
+                  />
                 </div>
 
                 <div className="border-t border-white/10 p-6">
@@ -1079,7 +1294,7 @@ export default function CreatePoolPage() {
                     disabled={isSaving || loadingTournaments || loadingPoolrUser}
                     className="w-full rounded-[22px] bg-emerald-400 px-7 py-4 text-sm font-black uppercase tracking-[0.14em] text-black transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    {isSaving ? "Creating..." : "Create Pool"}
+                    {createButtonLabel}
                   </button>
 
                   {poolrUser ? (
@@ -1088,6 +1303,7 @@ export default function CreatePoolPage() {
                       <span className="font-bold text-neutral-300">
                         {poolrUser.full_name || poolrUser.email}
                       </span>
+                      {userHasUsedFreeExperience ? " • Free used" : " • First pool free"}
                     </p>
                   ) : null}
                 </div>
@@ -1104,7 +1320,7 @@ export default function CreatePoolPage() {
           disabled={isSaving || loadingTournaments || loadingPoolrUser}
           className="w-full rounded-[20px] bg-emerald-400 px-7 py-4 text-sm font-black uppercase tracking-[0.14em] text-black transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {isSaving ? "Creating..." : "Create Pool"}
+          {createButtonLabel}
         </button>
       </div>
     </main>
