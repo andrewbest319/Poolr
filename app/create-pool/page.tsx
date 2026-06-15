@@ -37,6 +37,8 @@ type PoolrUser = {
   full_name: string;
   email: string;
   phone?: string | null;
+  phone_verified?: boolean | null;
+  phone_verified_at?: string | null;
   has_used_free_pool_experience?: boolean | null;
   first_pool_id?: string | null;
   first_entry_id?: string | null;
@@ -269,6 +271,10 @@ function availableSinglePoolCredits(user: PoolrUser | null) {
 
 function hasUsedFreeExperience(user: PoolrUser | null) {
   return user?.has_used_free_pool_experience === true;
+}
+
+function hasVerifiedPhone(user: PoolrUser | null) {
+  return user?.phone_verified === true;
 }
 
 function Badge({ children, tone = "dark" }: { children: ReactNode; tone?: "green" | "gold" | "blue" | "dark" }) {
@@ -512,8 +518,15 @@ export default function CreatePoolPage() {
           return;
         }
 
+        const loadedUser = data as PoolrUser;
+
+        if (loadedUser.phone_verified !== true) {
+          router.replace(`/account/settings?returnTo=${encodeURIComponent(CREATE_POOL_PATH)}`);
+          return;
+        }
+
         setPoolrUserId(savedUserId);
-        setPoolrUser(data as PoolrUser);
+        setPoolrUser(loadedUser);
       } catch (error) {
         console.error("Failed to verify Poolr account:", error);
         localStorage.removeItem("poolr_user_id");
@@ -597,6 +610,9 @@ export default function CreatePoolPage() {
   const userHasProAccess = hasActiveProAccess(poolrUser);
   const userHasSinglePoolCredit = availableSinglePoolCredits(poolrUser) > 0;
   const userHasUsedFreeExperience = hasUsedFreeExperience(poolrUser);
+  const userHasVerifiedPhone = hasVerifiedPhone(poolrUser);
+  const mustVerifyPhone = Boolean(poolrUser) && !userHasVerifiedPhone;
+  const phoneVerificationHref = `/account/settings?returnTo=${encodeURIComponent(CREATE_POOL_PATH)}`;
   const usingFreeFirstPool =
     Boolean(poolrUser) && !userHasUsedFreeExperience && !userHasProAccess;
   const mustPayBeforeCreate =
@@ -605,9 +621,11 @@ export default function CreatePoolPage() {
     !userHasProAccess &&
     !userHasSinglePoolCredit;
   const pricingHref = `/pricing?returnTo=${encodeURIComponent(CREATE_POOL_PATH)}`;
-  const createButtonLabel = mustPayBeforeCreate
-    ? "Choose Paid Plan"
-    : isSaving
+  const createButtonLabel = mustVerifyPhone
+    ? "Verify Phone First"
+    : mustPayBeforeCreate
+      ? "Choose Paid Plan"
+      : isSaving
       ? "Creating..."
       : usingFreeFirstPool
         ? "Create Free First Pool"
@@ -683,6 +701,7 @@ export default function CreatePoolPage() {
 
   function validateForm() {
     if (!poolrUserId) return "Create your Poolr account before creating a pool.";
+    if (mustVerifyPhone) return "Verify your phone number before creating a Poolr pool.";
     if (mustPayBeforeCreate) {
       return "You already used your free Poolr experience. Choose Single Pool or Pro before creating another pool.";
     }
@@ -846,6 +865,11 @@ export default function CreatePoolPage() {
   }
 
   async function handleCreatePool() {
+    if (mustVerifyPhone) {
+      router.push(phoneVerificationHref);
+      return;
+    }
+
     if (mustPayBeforeCreate) {
       router.push(pricingHref);
       return;

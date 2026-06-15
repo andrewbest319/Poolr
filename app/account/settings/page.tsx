@@ -19,6 +19,8 @@ type PoolrUser = {
   email_normalized?: string | null;
   phone: string | null;
   phone_normalized?: string | null;
+  phone_verified?: boolean | null;
+  phone_verified_at?: string | null;
   has_used_free_pool_experience?: boolean | null;
   marketing_email_opt_in?: boolean | null;
   marketing_sms_opt_in?: boolean | null;
@@ -106,6 +108,11 @@ function getPlanLabel(user: PoolrUser | null) {
   return "Free First Pool";
 }
 
+function phoneIsVerified(user: PoolrUser | null, currentPhone: string) {
+  if (!user?.phone_verified) return false;
+  return normalizePhone(user.phone || "") === normalizePhone(currentPhone);
+}
+
 function ButtonLink({
   href,
   children,
@@ -170,10 +177,14 @@ function SettingsInner() {
   const [phone, setPhone] = useState("");
   const [emailOptIn, setEmailOptIn] = useState(true);
   const [smsOptIn, setSmsOptIn] = useState(true);
+  const [verificationCode, setVerificationCode] = useState("");
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [billingLoading, setBillingLoading] = useState(false);
+  const [sendingCode, setSendingCode] = useState(false);
+  const [verifyingCode, setVerifyingCode] = useState(false);
+  const [codeSent, setCodeSent] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
 
@@ -285,6 +296,9 @@ function SettingsInner() {
       let savedUser: PoolrUser | null = null;
 
       if (existingUser) {
+        const existingPhoneNormalized = normalizePhone(existingUser.phone || "");
+        const phoneChanged = existingPhoneNormalized !== phoneNormalized;
+
         const { data, error: updateError } = await supabase
           .from("poolr_users")
           .update({
@@ -293,6 +307,8 @@ function SettingsInner() {
             email_normalized: emailNormalized,
             phone: cleanedPhone,
             phone_normalized: phoneNormalized,
+            phone_verified: phoneChanged ? false : existingUser.phone_verified ?? false,
+            phone_verified_at: phoneChanged ? null : existingUser.phone_verified_at ?? null,
             marketing_email_opt_in: emailOptIn,
             marketing_sms_opt_in: smsOptIn,
           })
@@ -312,6 +328,8 @@ function SettingsInner() {
             email_normalized: emailNormalized,
             phone: cleanedPhone,
             phone_normalized: phoneNormalized,
+            phone_verified: false,
+            phone_verified_at: null,
             marketing_email_opt_in: emailOptIn,
             marketing_sms_opt_in: smsOptIn,
             has_used_free_pool_experience: false,
@@ -330,12 +348,17 @@ function SettingsInner() {
 
       hydrateUser(savedUser);
 
-      if (returnTo) {
-        router.push(returnTo);
+      if (phoneIsVerified(savedUser, cleanedPhone)) {
+        if (returnTo) {
+          router.push(returnTo);
+          return;
+        }
+
+        setNotice("Account information saved.");
         return;
       }
 
-      setNotice("Account information saved.");
+      setNotice("Account saved. Verify your phone number to continue and unlock your free Poolr experience.");
     } catch (err) {
       setError(
         err instanceof Error
@@ -344,6 +367,104 @@ function SettingsInner() {
       );
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function sendVerificationCode() {
+    setError("");
+    setNotice("");
+
+    if (!account?.id) {
+      setError("Save your account first, then send the verification code.");
+      return;
+    }
+
+    if (!normalizePhone(phone) || normalizePhone(phone).length < 10) {
+      setError("Enter and save a valid phone number first.");
+      return;
+    }
+
+    setSendingCode(true);
+
+    try {
+      const response = await fetch("/api/phone/send-code", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          poolrUserId: account.id,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result?.error || "Could not send verification code.");
+      }
+
+      setCodeSent(true);
+      setNotice("Verification code sent. Check your text messages.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not send verification code.");
+    } finally {
+      setSendingCode(false);
+    }
+  }
+
+  async function verifyPhoneCode() {
+    setError("");
+    setNotice("");
+
+    if (!account?.id) {
+      setError("Save your account first, then verify your phone.");
+      return;
+    }
+
+    if (!verificationCode.trim()) {
+      setError("Enter the code sent to your phone.");
+      return;
+    }
+
+    setVerifyingCode(true);
+
+    try {
+      const response = await fetch("/api/phone/verify-code", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          poolrUserId: account.id,
+          code: verificationCode.trim(),
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result?.error || "Incorrect or expired code.");
+      }
+
+      const updatedUser = result?.user as PoolrUser | undefined;
+
+      if (updatedUser) {
+        hydrateUser(updatedUser);
+      }
+
+      setVerificationCode("");
+      setCodeSent(false);
+
+      if (returnTo) {
+        router.push(returnTo);
+        return;
+      }
+
+      setNotice("Phone verified. Your Poolr account is ready.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not verify phone code.");
+    } finally {
+      setVerifyingCode(false);
     }
   }
 
@@ -390,6 +511,8 @@ function SettingsInner() {
     setFullName("");
     setEmail("");
     setPhone("");
+    setVerificationCode("");
+    setCodeSent(false);
     setNotice("Signed out locally.");
   }
 
@@ -398,6 +521,7 @@ function SettingsInner() {
   const hasBillingProfile = Boolean(
     account?.stripe_customer_id || account?.stripe_subscription_id
   );
+  const verified = phoneIsVerified(account, phone);
 
   return (
     <main className="min-h-screen bg-[#030712] text-white">
@@ -418,7 +542,7 @@ function SettingsInner() {
                 Profile & Billing.
               </h1>
               <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-300">
-                Keep the main Account Center clean. Manage your profile, plan, credits, and cancellation here.
+                Verify your phone once to protect the free first-pool system and keep Poolr fair.
               </p>
             </div>
 
@@ -455,92 +579,175 @@ function SettingsInner() {
         ) : null}
 
         <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
-          <Card
-            title={account ? "Profile Details" : "Create / Find Account"}
-            subtitle={returnTo ? "Save this first, then Poolr will take you back." : "Name, email, phone, and communication preferences."}
-          >
-            {loading ? (
-              <div className="rounded-3xl border border-white/10 bg-black/25 p-6 text-sm text-slate-400">
-                Checking for saved account...
-              </div>
-            ) : (
-              <div className="space-y-5">
-                <label className="block">
-                  <span className="text-sm font-black text-white">Full Name</span>
-                  <input
-                    value={fullName}
-                    onChange={(event) => setFullName(event.target.value)}
-                    placeholder="AJ Best"
-                    className="mt-3 w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-white outline-none placeholder:text-slate-600 focus:border-emerald-300/40"
-                  />
-                </label>
+          <div className="space-y-6">
+            <Card
+              title={account ? "Profile Details" : "Create / Find Account"}
+              subtitle={returnTo ? "Save and verify this account, then Poolr will take you back." : "Name, email, phone, and communication preferences."}
+            >
+              {loading ? (
+                <div className="rounded-3xl border border-white/10 bg-black/25 p-6 text-sm text-slate-400">
+                  Checking for saved account...
+                </div>
+              ) : (
+                <div className="space-y-5">
+                  <label className="block">
+                    <span className="text-sm font-black text-white">Full Name</span>
+                    <input
+                      value={fullName}
+                      onChange={(event) => setFullName(event.target.value)}
+                      placeholder="AJ Best"
+                      className="mt-3 w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-white outline-none placeholder:text-slate-600 focus:border-emerald-300/40"
+                    />
+                  </label>
 
-                <label className="block">
-                  <span className="text-sm font-black text-white">Email</span>
-                  <input
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                    placeholder="you@email.com"
-                    type="email"
-                    className="mt-3 w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-white outline-none placeholder:text-slate-600 focus:border-emerald-300/40"
-                  />
-                </label>
+                  <label className="block">
+                    <span className="text-sm font-black text-white">Email</span>
+                    <input
+                      value={email}
+                      onChange={(event) => setEmail(event.target.value)}
+                      placeholder="you@email.com"
+                      type="email"
+                      className="mt-3 w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-white outline-none placeholder:text-slate-600 focus:border-emerald-300/40"
+                    />
+                  </label>
 
-                <label className="block">
-                  <span className="text-sm font-black text-white">Phone Number</span>
-                  <input
-                    value={phone}
-                    onChange={(event) => setPhone(event.target.value)}
-                    placeholder="(555) 555-5555"
-                    type="tel"
-                    className="mt-3 w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-white outline-none placeholder:text-slate-600 focus:border-emerald-300/40"
-                  />
-                </label>
+                  <label className="block">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-sm font-black text-white">Phone Number</span>
+                      <span
+                        className={cn(
+                          "rounded-full border px-3 py-1 text-xs font-black",
+                          verified
+                            ? "border-emerald-300/20 bg-emerald-400/10 text-emerald-200"
+                            : "border-yellow-300/20 bg-yellow-400/10 text-yellow-100"
+                        )}
+                      >
+                        {verified ? "Verified" : "Verification Required"}
+                      </span>
+                    </div>
+                    <input
+                      value={phone}
+                      onChange={(event) => setPhone(event.target.value)}
+                      placeholder="(555) 555-5555"
+                      type="tel"
+                      className="mt-3 w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-white outline-none placeholder:text-slate-600 focus:border-emerald-300/40"
+                    />
+                    <p className="mt-2 text-xs leading-5 text-slate-500">
+                      Changing your phone number will require a new verification code.
+                    </p>
+                  </label>
 
-                <button
-                  type="button"
-                  onClick={() => setEmailOptIn((prev) => !prev)}
-                  className="flex w-full items-start justify-between gap-4 rounded-2xl border border-white/10 bg-black/25 p-4 text-left transition hover:bg-white/[0.04]"
+                  <button
+                    type="button"
+                    onClick={() => setEmailOptIn((prev) => !prev)}
+                    className="flex w-full items-start justify-between gap-4 rounded-2xl border border-white/10 bg-black/25 p-4 text-left transition hover:bg-white/[0.04]"
+                  >
+                    <div>
+                      <p className="text-sm font-black text-white">Email updates</p>
+                      <p className="mt-1 text-sm leading-6 text-slate-400">
+                        Pool reminders, product updates, and offers.
+                      </p>
+                    </div>
+
+                    <span className={cn("relative mt-1 inline-flex h-6 w-11 shrink-0 items-center rounded-full transition", emailOptIn ? "bg-emerald-400" : "bg-white/10")}>
+                      <span className={cn("inline-block h-5 w-5 rounded-full bg-white transition", emailOptIn ? "translate-x-5" : "translate-x-1")} />
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSmsOptIn((prev) => !prev)}
+                    className="flex w-full items-start justify-between gap-4 rounded-2xl border border-white/10 bg-black/25 p-4 text-left transition hover:bg-white/[0.04]"
+                  >
+                    <div>
+                      <p className="text-sm font-black text-white">Text updates</p>
+                      <p className="mt-1 text-sm leading-6 text-slate-400">
+                        Required verification texts plus occasional Poolr updates if enabled.
+                      </p>
+                    </div>
+
+                    <span className={cn("relative mt-1 inline-flex h-6 w-11 shrink-0 items-center rounded-full transition", smsOptIn ? "bg-emerald-400" : "bg-white/10")}>
+                      <span className={cn("inline-block h-5 w-5 rounded-full bg-white transition", smsOptIn ? "translate-x-5" : "translate-x-1")} />
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={saveAccount}
+                    disabled={saving}
+                    className="w-full rounded-2xl bg-emerald-400 px-5 py-4 text-sm font-black text-black transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {saving ? "Saving..." : returnTo ? "Save & Continue" : account ? "Save Account" : "Create Account"}
+                  </button>
+                </div>
+              )}
+            </Card>
+
+            <Card
+              title="Phone Verification"
+              subtitle="This is what stops people from using fake numbers to claim multiple free pools."
+              right={
+                <span
+                  className={cn(
+                    "rounded-full border px-3 py-1 text-xs font-black",
+                    verified
+                      ? "border-emerald-300/20 bg-emerald-400/10 text-emerald-200"
+                      : "border-yellow-300/20 bg-yellow-400/10 text-yellow-100"
+                  )}
                 >
-                  <div>
-                    <p className="text-sm font-black text-white">Email updates</p>
-                    <p className="mt-1 text-sm leading-6 text-slate-400">
-                      Pool reminders, product updates, and offers.
+                  {verified ? "Verified" : "Required"}
+                </span>
+              }
+            >
+              {verified ? (
+                <div className="rounded-[26px] border border-emerald-300/20 bg-emerald-400/10 p-5">
+                  <p className="text-lg font-black text-white">Phone verified</p>
+                  <p className="mt-2 text-sm leading-6 text-emerald-100/80">
+                    Your account can use Poolr’s free first-pool experience and join pools normally.
+                  </p>
+                  <p className="mt-2 text-xs text-emerald-200/70">
+                    Verified on {displayDate(account?.phone_verified_at)}
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="rounded-[26px] border border-yellow-300/20 bg-yellow-400/10 p-5">
+                    <p className="text-lg font-black text-white">Verify your phone</p>
+                    <p className="mt-2 text-sm leading-6 text-yellow-100/80">
+                      Save your account first, then send a code to your phone. You must verify before using the free Poolr experience.
                     </p>
                   </div>
 
-                  <span className={cn("relative mt-1 inline-flex h-6 w-11 shrink-0 items-center rounded-full transition", emailOptIn ? "bg-emerald-400" : "bg-white/10")}>
-                    <span className={cn("inline-block h-5 w-5 rounded-full bg-white transition", emailOptIn ? "translate-x-5" : "translate-x-1")} />
-                  </span>
-                </button>
+                  <button
+                    type="button"
+                    onClick={sendVerificationCode}
+                    disabled={sendingCode || !account?.id}
+                    className="w-full rounded-2xl bg-white px-5 py-4 text-sm font-black text-slate-950 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {sendingCode ? "Sending Code..." : codeSent ? "Send Code Again" : "Send Verification Code"}
+                  </button>
 
-                <button
-                  type="button"
-                  onClick={() => setSmsOptIn((prev) => !prev)}
-                  className="flex w-full items-start justify-between gap-4 rounded-2xl border border-white/10 bg-black/25 p-4 text-left transition hover:bg-white/[0.04]"
-                >
-                  <div>
-                    <p className="text-sm font-black text-white">Text updates</p>
-                    <p className="mt-1 text-sm leading-6 text-slate-400">
-                      Occasional texts about pools and tournaments.
-                    </p>
+                  <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+                    <input
+                      value={verificationCode}
+                      onChange={(event) => setVerificationCode(event.target.value)}
+                      placeholder="Enter code"
+                      inputMode="numeric"
+                      className="rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-white outline-none placeholder:text-slate-600 focus:border-emerald-300/40"
+                    />
+
+                    <button
+                      type="button"
+                      onClick={verifyPhoneCode}
+                      disabled={verifyingCode || !account?.id}
+                      className="rounded-2xl bg-emerald-400 px-5 py-3 text-sm font-black text-black transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {verifyingCode ? "Verifying..." : "Verify"}
+                    </button>
                   </div>
-
-                  <span className={cn("relative mt-1 inline-flex h-6 w-11 shrink-0 items-center rounded-full transition", smsOptIn ? "bg-emerald-400" : "bg-white/10")}>
-                    <span className={cn("inline-block h-5 w-5 rounded-full bg-white transition", smsOptIn ? "translate-x-5" : "translate-x-1")} />
-                  </span>
-                </button>
-
-                <button
-                  onClick={saveAccount}
-                  disabled={saving}
-                  className="w-full rounded-2xl bg-emerald-400 px-5 py-4 text-sm font-black text-black transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {saving ? "Saving..." : returnTo ? "Continue" : account ? "Save Account" : "Create Account"}
-                </button>
-              </div>
-            )}
-          </Card>
+                </div>
+              )}
+            </Card>
+          </div>
 
           <div className="space-y-6">
             <Card
