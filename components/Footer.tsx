@@ -2,56 +2,58 @@ import Link from "next/link";
 
 export default function Footer() {
   return (
-    <footer className="border-t border-white/10 bg-[#060816] px-8 py-10 text-white md:px-12">
-      <div className="mx-auto flex max-w-7xl flex-col gap-8">
-        <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
+    <footer className="border-t border-white/10 bg-[#030712]">
+      <div className="mx-auto max-w-7xl px-6 py-10 sm:px-8 lg:px-10">
+        <div className="grid gap-8 lg:grid-cols-[1fr_auto] lg:items-start">
           <div>
-            <div className="text-lg font-semibold tracking-tight text-white">
+            <Link href="/" className="text-lg font-black tracking-tight text-white">
               Poolr
-            </div>
-            <div className="mt-1 text-sm text-zinc-400">
-              Private pools, elevated.
-            </div>
-            <p className="mt-3 max-w-md text-sm leading-6 text-zinc-500">
-              Premium golf pools, clean leaderboards, hidden picks, and a better
-              way to run tournament action with your group.
+            </Link>
+
+            <p className="mt-3 text-sm text-zinc-400">Private pools, elevated.</p>
+
+            <p className="mt-5 max-w-2xl text-sm leading-7 text-zinc-500">
+              Premium golf pools, clean leaderboards, hidden picks, and a better way
+              to run tournament action with your group.
             </p>
           </div>
 
-          <div className="flex flex-col gap-4 md:items-end">
-            <div className="flex flex-wrap gap-x-6 gap-y-3 text-sm text-zinc-400">
-              <Link href="/" className="transition hover:text-white">
-                Home
-              </Link>
-
-              <Link href="/pricing" className="transition hover:text-white">
-                Pricing
-              </Link>
-
-              <Link href="/login" className="transition hover:text-white">
-                Login
-              </Link>
-            </div>
-
-            <div className="flex flex-wrap gap-x-6 gap-y-3 text-sm text-zinc-500">
-              <Link href="/privacy" className="transition hover:text-cyan-300">
-                Privacy Policy
-              </Link>
-
-              <Link href="/terms" className="transition hover:text-cyan-300">
-                Terms and Conditions
-              </Link>
-            </div>
-          </div>
+          <nav className="grid gap-3 text-sm text-zinc-400 sm:grid-cols-3 lg:text-right">
+            <Link href="/" className="transition hover:text-white">
+              Home
+            </Link>
+            <Link href="/pricing" className="transition hover:text-white">
+              Pricing
+            </Link>
+            <Link href="/account" className="transition hover:text-white">
+              Account Center
+            </Link>
+            <Link href="/account/settings" className="transition hover:text-white">
+              Account Information
+            </Link>
+            <Link href="/create-pool" className="transition hover:text-white">
+              Create Pool
+            </Link>
+            <Link href="/join-pool" className="transition hover:text-white">
+              Join Pool
+            </Link>
+            <Link href="/privacy" className="transition hover:text-white">
+              Privacy Policy
+            </Link>
+            <Link href="/terms" className="transition hover:text-white">
+              Terms and Conditions
+            </Link>
+          </nav>
         </div>
 
-        <div className="flex flex-col gap-3 border-t border-white/10 pt-6 text-xs text-zinc-600 md:flex-row md:items-center md:justify-between">
-          <p>© {new Date().getFullYear()} Poolr. All rights reserved.</p>
-
-          <p>
-            Poolr is a golf pool software platform. Poolr does not process
-            wagers, winnings, bets, or prize pools.
-          </p>
+        <div className="mt-8 border-t border-white/10 pt-6">
+          <div className="grid gap-4 text-xs text-zinc-600 lg:grid-cols-[1fr_auto]">
+            <p>© 2026 Poolr. All rights reserved.</p>
+            <p>
+              Poolr is a golf pool software platform. Poolr does not process wagers,
+              winnings, bets, or prize pools.
+            </p>
+          </div>
         </div>
       </div>
     </footer>

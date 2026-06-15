@@ -486,6 +486,20 @@ export default function PoolLobbyPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href="/account"
+              className="inline-flex items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-black text-white transition hover:bg-white/10"
+            >
+              Account Center
+            </Link>
+
+            <Link
+              href={`/account/settings?returnTo=${encodeURIComponent(`/pool/${pool.id}`)}`}
+              className="inline-flex items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-black text-white transition hover:bg-white/10"
+            >
+              Account Info
+            </Link>
+
             {isCreator && (
               <Link
                 href={`/pool/${pool.id}/manage`}
@@ -536,12 +550,21 @@ export default function PoolLobbyPage() {
               ) : null}
             </p>
 
-            <Link
-              href={`/account?returnTo=${encodeURIComponent(`/pool/${pool.id}`)}`}
-              className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-black text-white transition hover:bg-white/10"
-            >
-              Update Account
-            </Link>
+            <div className="flex flex-wrap gap-2">
+              <Link
+                href="/account"
+                className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-black text-white transition hover:bg-white/10"
+              >
+                Account Center
+              </Link>
+
+              <Link
+                href={`/account/settings?returnTo=${encodeURIComponent(`/pool/${pool.id}`)}`}
+                className="rounded-xl border border-emerald-300/20 bg-emerald-400/10 px-3 py-2 text-xs font-black text-emerald-100 transition hover:bg-emerald-400/20"
+              >
+                Account Information
+              </Link>
+            </div>
           </div>
         )}
 
@@ -828,7 +851,7 @@ export default function PoolLobbyPage() {
 
                   <div className="mt-5 flex flex-wrap gap-3">
                     <Link
-                      href={`/account?returnTo=${encodeURIComponent(joinPath)}`}
+                      href={`/account/settings?returnTo=${encodeURIComponent(joinPath)}`}
                       className="rounded-2xl bg-emerald-400 px-5 py-3 text-sm font-black text-black transition hover:bg-emerald-300"
                     >
                       Create Account
@@ -908,6 +931,49 @@ export default function PoolLobbyPage() {
             </SectionCard>
           )}
         </div>
+
+        <section className="mt-6 overflow-hidden rounded-[30px] border border-white/10 bg-white/[0.05] p-5 shadow-[0_25px_80px_rgba(0,0,0,0.35)] backdrop-blur-xl">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.28em] text-emerald-300">
+                Poolr Navigation
+              </p>
+              <h2 className="mt-2 text-xl font-black text-white">
+                Need to get back to your pools or account?
+              </h2>
+              <p className="mt-1 text-sm leading-6 text-slate-400">
+                Account Center is your home base. Account Information is where plan, credits, and cancellation live.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <Link
+                href="/account"
+                className="inline-flex items-center justify-center rounded-2xl bg-emerald-400 px-4 py-3 text-sm font-black text-black transition hover:bg-emerald-300"
+              >
+                Account Center
+              </Link>
+              <Link
+                href="/account/settings"
+                className="inline-flex items-center justify-center rounded-2xl bg-white px-4 py-3 text-sm font-black text-slate-950 transition hover:bg-slate-200"
+              >
+                Account Information
+              </Link>
+              <Link
+                href="/create-pool"
+                className="inline-flex items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-black text-white transition hover:bg-white/10"
+              >
+                Create Pool
+              </Link>
+              <Link
+                href="/join-pool"
+                className="inline-flex items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-black text-white transition hover:bg-white/10"
+              >
+                Join Pool
+              </Link>
+            </div>
+          </div>
+        </section>
       </div>
     </main>
   );
