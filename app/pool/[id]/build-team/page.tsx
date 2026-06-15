@@ -13,6 +13,10 @@ type Pool = {
   counted_players: number | null;
   salary_cap: number | null;
   format: string | null;
+  is_locked?: boolean | null;
+  locked_at?: string | null;
+  unlocked_at?: string | null;
+  lock_note?: string | null;
 };
 
 type Tournament = {
@@ -22,6 +26,7 @@ type Tournament = {
   course?: string | null;
   lock_time: string | null;
   status: string | null;
+  start_date?: string | null;
 };
 
 type PoolrUser = {
@@ -213,15 +218,23 @@ function defaultTier(index: number, fieldSize: number) {
   return Math.min(tierCount, Math.floor(index / tierSize) + 1);
 }
 
-function lockText(tournament: Tournament | null) {
+function getTournamentLockTimestamp(tournament: Tournament | null) {
+  return tournament?.lock_time || tournament?.start_date || null;
+}
+
+function lockText(pool: Pool | null, tournament: Tournament | null) {
   const status = String(tournament?.status ?? "").toLowerCase();
 
+  if (pool?.is_locked) return "Pool manually locked by commissioner";
   if (status === "live") return "Tournament is live — teams are locked";
   if (status === "final") return "Tournament final — teams are locked";
   if (status === "locked") return "Teams are locked";
-  if (!tournament?.lock_time) return "Lock time TBD";
 
-  const lockTime = new Date(tournament.lock_time).getTime();
+  const rawLockTimestamp = getTournamentLockTimestamp(tournament);
+
+  if (!rawLockTimestamp) return "Lock time TBD";
+
+  const lockTime = new Date(rawLockTimestamp).getTime();
 
   if (Number.isNaN(lockTime)) return "Lock time TBD";
 
@@ -241,13 +254,18 @@ function lockText(tournament: Tournament | null) {
 
 function isTournamentLocked(tournament: Tournament | null) {
   const status = String(tournament?.status ?? "").toLowerCase();
+  const rawLockTimestamp = getTournamentLockTimestamp(tournament);
 
   return (
     status === "locked" ||
     status === "live" ||
     status === "final" ||
-    (!!tournament?.lock_time && new Date() >= new Date(tournament.lock_time))
+    (!!rawLockTimestamp && new Date() >= new Date(rawLockTimestamp))
   );
+}
+
+function isPoolLocked(pool: Pool | null, tournament: Tournament | null) {
+  return pool?.is_locked === true || isTournamentLocked(tournament);
 }
 
 function getPlayerName(row: PlayerPrice) {
@@ -595,7 +613,7 @@ export default function BuildTeamPage() {
     loadBuildTeam();
   }, [accountReady, poolrUserId, poolId, entryIdFromUrl]);
 
-  const isLocked = isTournamentLocked(tournament);
+  const isLocked = isPoolLocked(pool, tournament);
 
   const rosterSize = Number(pool?.roster_size ?? 6);
   const countedPlayers = Number(pool?.counted_players ?? 4);
@@ -605,8 +623,64 @@ export default function BuildTeamPage() {
 
   const selectedGolfers = useMemo(() => {
     const selectedSet = new Set(selected);
-    return golfers.filter((golfer) => selectedSet.has(golfer.id));
-  }, [golfers, selected]);
+    const players = golfers.filter((golfer) => selectedSet.has(golfer.id));
+
+    if (!isSalaryCap) {
+      return [...players].sort(
+        (a, b) =>
+          Number(a.tier) - Number(b.tier) ||
+          getRankNumber(a) - getRankNumber(b) ||
+          a.name.localeCompare(b.name)
+      );
+    }
+
+    return players;
+  }, [golfers, selected, isSalaryCap]);
+
+  const tierSlots = useMemo(() => {
+    const tiers = Array.from(
+      new Set(
+        golfers
+          .map((golfer) => Number(golfer.tier))
+          .filter((tier) => Number.isFinite(tier) && tier > 0)
+      )
+    ).sort((a, b) => a - b);
+
+    return tiers.length > 0 ? tiers : [1, 2, 3, 4, 5, 6];
+  }, [golfers]);
+
+  const effectiveRosterSize = isSalaryCap ? rosterSize : tierSlots.length;
+
+  const selectedTierCounts = useMemo(() => {
+    const counts = new Map<number, number>();
+
+    for (const golfer of selectedGolfers) {
+      const tier = Number(golfer.tier);
+      if (!Number.isFinite(tier)) continue;
+      counts.set(tier, (counts.get(tier) ?? 0) + 1);
+    }
+
+    return counts;
+  }, [selectedGolfers]);
+
+  const missingTiers = useMemo(() => {
+    if (isSalaryCap) return [];
+    return tierSlots.filter((tier) => !selectedTierCounts.has(tier));
+  }, [isSalaryCap, selectedTierCounts, tierSlots]);
+
+  const duplicateTiers = useMemo(() => {
+    if (isSalaryCap) return [];
+
+    return Array.from(selectedTierCounts.entries())
+      .filter(([, count]) => count > 1)
+      .map(([tier]) => tier);
+  }, [isSalaryCap, selectedTierCounts]);
+
+  const tierRosterComplete =
+    !isSalaryCap &&
+    selected.length === effectiveRosterSize &&
+    missingTiers.length === 0 &&
+    duplicateTiers.length === 0;
 
   const salaryUsed = selectedGolfers.reduce(
     (sum, golfer) => sum + Number(golfer.salary ?? 0),
@@ -628,6 +702,23 @@ export default function BuildTeamPage() {
       return haystack.includes(term);
     });
 
+    if (!isSalaryCap) {
+      list = [...list].sort((a, b) => {
+        const tierDiff = Number(a.tier) - Number(b.tier);
+        if (tierDiff !== 0) return tierDiff;
+
+        if (sort === "salary") return b.salary - a.salary;
+        if (sort === "name") return a.name.localeCompare(b.name);
+        if (sort === "rank" || sort === "tier") {
+          return getRankNumber(a) - getRankNumber(b);
+        }
+
+        return sortByFavorite(a, b);
+      });
+
+      return list;
+    }
+
     if (sort === "favorite") {
       list = [...list].sort(sortByFavorite);
     }
@@ -641,7 +732,7 @@ export default function BuildTeamPage() {
     }
 
     if (sort === "tier") {
-      list = [...list].sort((a, b) => a.tier - b.tier);
+      list = [...list].sort((a, b) => a.tier - b.tier || getRankNumber(a) - getRankNumber(b));
     }
 
     if (sort === "rank") {
@@ -649,9 +740,12 @@ export default function BuildTeamPage() {
     }
 
     return list;
-  }, [golfers, search, sort]);
+  }, [golfers, search, sort, isSalaryCap]);
 
-  const rosterComplete = selected.length === rosterSize;
+  const rosterComplete = isSalaryCap
+    ? selected.length === rosterSize
+    : tierRosterComplete;
+
   const overSalaryCap = isSalaryCap && salaryUsed > salaryCap;
   const canSubmit = rosterComplete && !overSalaryCap && !isLocked && !saving;
 
@@ -671,8 +765,32 @@ export default function BuildTeamPage() {
       return;
     }
 
-    if (selected.length >= rosterSize) {
-      setError(`You can only select ${rosterSize} golfers.`);
+    const golfer = golfers.find((item) => item.id === golferId);
+
+    if (!golfer) {
+      setError("This golfer could not be found.");
+      return;
+    }
+
+    if (!isSalaryCap) {
+      const tierAlreadyFilled = selectedGolfers.some(
+        (selectedGolfer) => Number(selectedGolfer.tier) === Number(golfer.tier)
+      );
+
+      if (tierAlreadyFilled) {
+        setError(
+          `Tier ${golfer.tier} is already filled. Tiered Draft requires exactly one golfer from each tier.`
+        );
+        return;
+      }
+    }
+
+    if (selected.length >= effectiveRosterSize) {
+      setError(
+        isSalaryCap
+          ? `You can only select ${rosterSize} golfers.`
+          : `Tiered Draft requires exactly ${effectiveRosterSize} golfers — one from each tier.`
+      );
       return;
     }
 
@@ -785,8 +903,28 @@ export default function BuildTeamPage() {
         throw new Error("This pool is locked. Teams can no longer be submitted.");
       }
 
-      if (selected.length !== rosterSize) {
+      if (isSalaryCap && selected.length !== rosterSize) {
         throw new Error(`Select exactly ${rosterSize} golfers.`);
+      }
+
+      if (!isSalaryCap) {
+        if (duplicateTiers.length > 0) {
+          throw new Error(
+            `Tiered Draft requires exactly one golfer from each tier. Duplicate tier: ${duplicateTiers
+              .map((tier) => `Tier ${tier}`)
+              .join(", ")}.`
+          );
+        }
+
+        if (!tierRosterComplete) {
+          throw new Error(
+            `Pick exactly one golfer from each tier. Missing: ${
+              missingTiers.length > 0
+                ? missingTiers.map((tier) => `Tier ${tier}`).join(", ")
+                : "none"
+            }.`
+          );
+        }
       }
 
       if (overSalaryCap) {
@@ -926,7 +1064,7 @@ export default function BuildTeamPage() {
                 {tournament?.name ?? "Tournament"}{" "}
                 {tournament?.location ? `• ${tournament.location}` : ""}
                 {tournament?.course ? ` • ${tournament.course}` : ""} •{" "}
-                {lockText(tournament)}
+                {lockText(pool, tournament)}
               </p>
 
               {poolrUser && (
@@ -967,13 +1105,17 @@ export default function BuildTeamPage() {
                   ? "Teams Locked"
                   : rosterComplete
                   ? "Submit Team"
-                  : `Pick ${rosterSize - selected.length} More`}
+                  : isSalaryCap
+                  ? `Pick ${rosterSize - selected.length} More`
+                  : missingTiers.length > 0
+                  ? `Pick Tier ${missingTiers[0]}`
+                  : `Pick ${effectiveRosterSize - selected.length} More`}
               </button>
             </div>
           </div>
 
           <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <Stat label="Selected" value={`${selected.length}/${rosterSize}`} good={rosterComplete} />
+            <Stat label="Selected" value={`${selected.length}/${effectiveRosterSize}`} good={rosterComplete} />
             <Stat label="Best Count" value={countedPlayers} />
             <Stat label="Salary Used" value={money(salaryUsed)} />
             <Stat
@@ -989,9 +1131,35 @@ export default function BuildTeamPage() {
               <div>
                 <p className="text-sm font-black text-white">Roster Rule</p>
                 <p className="mt-1 text-sm leading-6 text-slate-400">
-                  Pick {rosterSize} golfers. Your best {countedPlayers} live scores count on
-                  the leaderboard. Picks lock when the tournament starts.
+                  {isSalaryCap
+                    ? `Pick ${rosterSize} golfers. Your best ${countedPlayers} live scores count on the leaderboard. Picks lock when the tournament starts.`
+                    : `Pick exactly 1 golfer from each tier. You must fill all ${effectiveRosterSize} tiers before submitting. Picks lock when the tournament starts.`}
                 </p>
+
+                {!isSalaryCap && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {tierSlots.map((tier) => {
+                      const filled = selectedTierCounts.has(tier);
+                      const duplicate = duplicateTiers.includes(tier);
+
+                      return (
+                        <span
+                          key={tier}
+                          className={cn(
+                            "rounded-full border px-3 py-1 text-xs font-black",
+                            duplicate
+                              ? "border-red-300/30 bg-red-400/10 text-red-200"
+                              : filled
+                                ? "border-emerald-300/30 bg-emerald-400/10 text-emerald-200"
+                                : "border-white/10 bg-white/5 text-slate-400"
+                          )}
+                        >
+                          Tier {tier} {duplicate ? "Duplicate" : filled ? "Filled" : "Open"}
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-4 py-2 text-xs font-black text-emerald-200">
@@ -1109,7 +1277,11 @@ export default function BuildTeamPage() {
                 : isLocked
                 ? "Teams Locked"
                 : !rosterComplete
-                ? `Pick ${rosterSize - selected.length} More`
+                ? isSalaryCap
+                  ? `Pick ${rosterSize - selected.length} More`
+                  : missingTiers.length > 0
+                    ? `Pick Tier ${missingTiers[0]}`
+                    : `Pick ${effectiveRosterSize - selected.length} More`
                 : overSalaryCap
                 ? "Over Salary Cap"
                 : "Submit Team"}
@@ -1131,7 +1303,7 @@ export default function BuildTeamPage() {
                 className="rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-sm font-bold text-white outline-none focus:border-emerald-300/40"
               >
                 <option value="favorite" className="bg-[#07111f]">
-                  Sort by favorite to win
+                  {isSalaryCap ? "Sort by favorite to win" : "Sort by tier, favorite inside tier"}
                 </option>
                 <option value="rank" className="bg-[#07111f]">
                   Sort by DataGolf rank
@@ -1159,8 +1331,16 @@ export default function BuildTeamPage() {
               ) : (
                 filteredGolfers.map((golfer) => {
                   const isSelected = selected.includes(golfer.id);
-                  const disabled =
-                    isLocked || (!isSelected && selected.length >= rosterSize);
+                  const tierAlreadyFilled =
+                    !isSalaryCap &&
+                    !isSelected &&
+                    selectedGolfers.some(
+                      (selectedGolfer) =>
+                        Number(selectedGolfer.tier) === Number(golfer.tier)
+                    );
+
+                  const rosterFull = !isSelected && selected.length >= effectiveRosterSize;
+                  const disabled = isLocked || tierAlreadyFilled || rosterFull;
 
                   const wouldBeSalaryUsed = isSelected
                     ? salaryUsed
@@ -1180,6 +1360,7 @@ export default function BuildTeamPage() {
                           ? "border-emerald-400/50 bg-emerald-400/[0.09]"
                           : "border-white/10 bg-black/20 hover:bg-white/[0.07]",
                         disabled && !isSelected && "cursor-not-allowed opacity-40",
+                        tierAlreadyFilled && "border-yellow-400/30",
                         wouldGoOver && !isSelected && "border-yellow-400/25"
                       )}
                     >
@@ -1218,6 +1399,12 @@ export default function BuildTeamPage() {
                           {isSalaryCap ? money(golfer.salary) : `Tier ${golfer.tier}`}
                         </p>
                       </div>
+
+                      {tierAlreadyFilled && (
+                        <p className="mt-3 rounded-2xl border border-yellow-400/20 bg-yellow-400/10 px-3 py-2 text-xs font-bold text-yellow-100">
+                          Tier {golfer.tier} is already filled. Remove your current Tier {golfer.tier} pick to choose this golfer.
+                        </p>
+                      )}
 
                       {wouldGoOver && !isSelected && (
                         <p className="mt-3 rounded-2xl border border-yellow-400/20 bg-yellow-400/10 px-3 py-2 text-xs font-bold text-yellow-100">
