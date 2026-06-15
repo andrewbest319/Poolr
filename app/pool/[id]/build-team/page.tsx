@@ -1019,7 +1019,7 @@ export default function BuildTeamPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#030712] text-white">
+    <main className="min-h-screen bg-[#030712] pb-32 text-white xl:pb-0">
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
         <div className="absolute left-[-14%] top-[-14%] h-[560px] w-[560px] rounded-full bg-emerald-500/16 blur-3xl" />
         <div className="absolute right-[-14%] top-[8%] h-[500px] w-[500px] rounded-full bg-sky-500/10 blur-3xl" />
@@ -1417,6 +1417,50 @@ export default function BuildTeamPage() {
               )}
             </div>
           </section>
+        </div>
+      </div>
+
+      <div className="fixed inset-x-0 bottom-0 z-50 border-t border-white/10 bg-[#030712]/92 px-3 py-3 shadow-[0_-24px_80px_rgba(0,0,0,0.45)] backdrop-blur-2xl xl:hidden">
+        <div className="mx-auto flex max-w-7xl items-center gap-3 rounded-[24px] border border-white/10 bg-white/[0.07] p-3">
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-black text-white">
+              {selected.length}/{effectiveRosterSize} golfers selected
+            </p>
+            <p className="mt-0.5 truncate text-xs text-slate-400">
+              {isLocked
+                ? "Teams are locked"
+                : rosterComplete
+                  ? "Roster complete — ready to submit"
+                  : isSalaryCap
+                    ? `Pick ${rosterSize - selected.length} more`
+                    : missingTiers.length > 0
+                      ? `Next: Tier ${missingTiers[0]}`
+                      : `Pick ${effectiveRosterSize - selected.length} more`}
+            </p>
+          </div>
+
+          <button
+            onClick={submitTeam}
+            disabled={!canSubmit}
+            className={cn(
+              "shrink-0 rounded-2xl px-5 py-3 text-sm font-black transition",
+              canSubmit
+                ? "bg-emerald-400 text-black hover:bg-emerald-300"
+                : "cursor-not-allowed bg-slate-600 text-slate-300"
+            )}
+          >
+            {saving
+              ? "Saving..."
+              : isLocked
+              ? "Locked"
+              : rosterComplete
+              ? "Submit"
+              : isSalaryCap
+              ? `${rosterSize - selected.length} More`
+              : missingTiers.length > 0
+              ? `Tier ${missingTiers[0]}`
+              : `${effectiveRosterSize - selected.length} More`}
+          </button>
         </div>
       </div>
     </main>

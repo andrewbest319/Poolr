@@ -741,11 +741,11 @@ export default function LeaderboardPage() {
                               </span>
                             )}
 
-                            {row.liveCount < row.players.length && (
-                              <span className="rounded-full border border-yellow-400/20 bg-yellow-400/10 px-3 py-1 text-xs font-black text-yellow-100">
-                                PARTIAL LIVE DATA
-                              </span>
-                            )}
+                            <ScoringStatusBadge
+                              isLocked={isLocked}
+                              liveCount={row.liveCount}
+                              playerCount={row.players.length}
+                            />
                           </div>
 
                           <p className="mt-1 text-sm text-slate-400">
@@ -1058,6 +1058,34 @@ export default function LeaderboardPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+
+function ScoringStatusBadge({
+  isLocked,
+  liveCount,
+  playerCount,
+}: {
+  isLocked: boolean;
+  liveCount: number;
+  playerCount: number;
+}) {
+  let label = "SCORING PENDING";
+  let classes = "border-yellow-400/20 bg-yellow-400/10 text-yellow-100";
+
+  if (isLocked && playerCount > 0 && liveCount >= playerCount) {
+    label = "LIVE SCORING";
+    classes = "border-emerald-400/20 bg-emerald-400/10 text-emerald-200";
+  } else if (isLocked && liveCount > 0 && liveCount < playerCount) {
+    label = "PARTIAL LIVE SCORING";
+    classes = "border-cyan-400/20 bg-cyan-400/10 text-cyan-100";
+  }
+
+  return (
+    <span className={cn("rounded-full border px-3 py-1 text-xs font-black", classes)}>
+      {label}
+    </span>
   );
 }
 
