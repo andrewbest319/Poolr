@@ -374,26 +374,121 @@ function SettingsInner() {
     setError("");
     setNotice("");
 
-    if (!account?.id) {
-      setError("Save your account first, then send the verification code.");
+    const cleanedName = fullName.trim();
+    const cleanedEmail = email.trim();
+    const cleanedPhone = phone.trim();
+
+    const emailNormalized = normalizeEmail(cleanedEmail);
+    const phoneNormalized = normalizePhone(cleanedPhone);
+
+    if (!cleanedName) {
+      setError("Enter your full name first.");
       return;
     }
 
-    if (!normalizePhone(phone) || normalizePhone(phone).length < 10) {
-      setError("Enter and save a valid phone number first.");
+    if (!emailNormalized || !emailNormalized.includes("@")) {
+      setError("Enter a valid email address first.");
+      return;
+    }
+
+    if (phoneNormalized.length < 10) {
+      setError("Enter a valid phone number first.");
       return;
     }
 
     setSendingCode(true);
 
     try {
+      const emailLookup = await supabase
+        .from("poolr_users")
+        .select("*")
+        .eq("email_normalized", emailNormalized)
+        .maybeSingle();
+
+      if (emailLookup.error) throw new Error(emailLookup.error.message);
+
+      const phoneLookup = await supabase
+        .from("poolr_users")
+        .select("*")
+        .eq("phone_normalized", phoneNormalized)
+        .maybeSingle();
+
+      if (phoneLookup.error) throw new Error(phoneLookup.error.message);
+
+      const emailUser = emailLookup.data as PoolrUser | null;
+      const phoneUser = phoneLookup.data as PoolrUser | null;
+
+      if (emailUser && phoneUser && emailUser.id !== phoneUser.id) {
+        setError(
+          "That email and phone number are attached to different Poolr accounts. Use the same email and phone number you used before."
+        );
+        setSendingCode(false);
+        return;
+      }
+
+      const existingUser = emailUser || phoneUser || account;
+      let savedUser: PoolrUser | null = null;
+
+      if (existingUser) {
+        const phoneChanged =
+          normalizePhone(existingUser.phone || "") !== phoneNormalized;
+
+        const { data, error: updateError } = await supabase
+          .from("poolr_users")
+          .update({
+            full_name: cleanedName,
+            email: cleanedEmail,
+            email_normalized: emailNormalized,
+            phone: cleanedPhone,
+            phone_normalized: phoneNormalized,
+            phone_verified: phoneChanged ? false : existingUser.phone_verified ?? false,
+            phone_verified_at: phoneChanged ? null : existingUser.phone_verified_at ?? null,
+            marketing_email_opt_in: emailOptIn,
+            marketing_sms_opt_in: smsOptIn,
+          })
+          .eq("id", existingUser.id)
+          .select("*")
+          .single();
+
+        if (updateError) throw new Error(updateError.message);
+
+        savedUser = data as PoolrUser;
+      } else {
+        const { data, error: insertError } = await supabase
+          .from("poolr_users")
+          .insert({
+            full_name: cleanedName,
+            email: cleanedEmail,
+            email_normalized: emailNormalized,
+            phone: cleanedPhone,
+            phone_normalized: phoneNormalized,
+            phone_verified: false,
+            phone_verified_at: null,
+            marketing_email_opt_in: emailOptIn,
+            marketing_sms_opt_in: smsOptIn,
+            has_used_free_pool_experience: false,
+            poolr_plan: "free",
+            single_pool_credits: 0,
+          })
+          .select("*")
+          .single();
+
+        if (insertError) throw new Error(insertError.message);
+
+        savedUser = data as PoolrUser;
+      }
+
+      if (!savedUser) throw new Error("Could not save account before sending code.");
+
+      hydrateUser(savedUser);
+
       const response = await fetch("/api/phone/send-code", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          poolrUserId: account.id,
+          poolrUserId: savedUser.id,
         }),
       });
 
@@ -404,7 +499,7 @@ function SettingsInner() {
       }
 
       setCodeSent(true);
-      setNotice("Verification code sent. Check your text messages.");
+      setNotice("We sent you a code. Please verify your phone number below.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not send verification code.");
     } finally {
@@ -611,31 +706,90 @@ function SettingsInner() {
                     />
                   </label>
 
-                  <label className="block">
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-sm font-black text-white">Phone Number</span>
-                      <span
-                        className={cn(
-                          "rounded-full border px-3 py-1 text-xs font-black",
-                          verified
-                            ? "border-emerald-300/20 bg-emerald-400/10 text-emerald-200"
-                            : "border-yellow-300/20 bg-yellow-400/10 text-yellow-100"
-                        )}
-                      >
-                        {verified ? "Verified" : "Verification Required"}
-                      </span>
-                    </div>
-                    <input
-                      value={phone}
-                      onChange={(event) => setPhone(event.target.value)}
-                      placeholder="(555) 555-5555"
-                      type="tel"
-                      className="mt-3 w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-white outline-none placeholder:text-slate-600 focus:border-emerald-300/40"
-                    />
-                    <p className="mt-2 text-xs leading-5 text-slate-500">
-                      Changing your phone number will require a new verification code.
-                    </p>
-                  </label>
+                  <div className="space-y-3">
+                    <label className="block">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-sm font-black text-white">Phone Number</span>
+                        <span
+                          className={cn(
+                            "rounded-full border px-3 py-1 text-xs font-black",
+                            verified
+                              ? "border-emerald-300/20 bg-emerald-400/10 text-emerald-200"
+                              : codeSent
+                                ? "border-cyan-300/20 bg-cyan-400/10 text-cyan-200"
+                                : "border-yellow-300/20 bg-yellow-400/10 text-yellow-100"
+                          )}
+                        >
+                          {verified ? "Verified" : codeSent ? "Code Sent" : "Verification Required"}
+                        </span>
+                      </div>
+
+                      <input
+                        value={phone}
+                        onChange={(event) => {
+                          setPhone(event.target.value);
+                          setCodeSent(false);
+                          setVerificationCode("");
+                        }}
+                        placeholder="(555) 555-5555"
+                        type="tel"
+                        className="mt-3 w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-white outline-none placeholder:text-slate-600 focus:border-emerald-300/40"
+                      />
+                    </label>
+
+                    {verified ? (
+                      <div className="rounded-2xl border border-emerald-300/20 bg-emerald-400/10 p-4">
+                        <p className="text-sm font-black text-emerald-100">Phone verified</p>
+                        <p className="mt-1 text-xs leading-5 text-emerald-100/75">
+                          This phone number is verified and can use Poolr normally.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="rounded-2xl border border-yellow-300/20 bg-yellow-400/10 p-4">
+                        <p className="text-sm font-black text-white">
+                          {codeSent
+                            ? "We sent you a code. Please verify your phone number."
+                            : "Verify this phone number before using the free Poolr experience."}
+                        </p>
+
+                        <p className="mt-1 text-xs leading-5 text-yellow-100/80">
+                          Enter your phone number, then send a code. Poolr uses this to prevent people from claiming multiple free pools with fake accounts.
+                        </p>
+
+                        <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]">
+                          <button
+                            type="button"
+                            onClick={sendVerificationCode}
+                            disabled={sendingCode || normalizePhone(phone).length < 10}
+                            className="rounded-2xl bg-white px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {sendingCode ? "Sending Code..." : codeSent ? "Send Code Again" : "Send Code"}
+                          </button>
+
+                          {codeSent ? (
+                            <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                              <input
+                                value={verificationCode}
+                                onChange={(event) => setVerificationCode(event.target.value)}
+                                placeholder="Enter code"
+                                inputMode="numeric"
+                                className="min-w-0 rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-white outline-none placeholder:text-slate-600 focus:border-emerald-300/40"
+                              />
+
+                              <button
+                                type="button"
+                                onClick={verifyPhoneCode}
+                                disabled={verifyingCode || !account?.id}
+                                className="rounded-2xl bg-emerald-400 px-5 py-3 text-sm font-black text-black transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                {verifyingCode ? "Verifying..." : "Verify"}
+                              </button>
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+                    )}
+                  </div>
 
                   <button
                     type="button"
@@ -678,72 +832,6 @@ function SettingsInner() {
                   >
                     {saving ? "Saving..." : returnTo ? "Save & Continue" : account ? "Save Account" : "Create Account"}
                   </button>
-                </div>
-              )}
-            </Card>
-
-            <Card
-              title="Phone Verification"
-              subtitle="This is what stops people from using fake numbers to claim multiple free pools."
-              right={
-                <span
-                  className={cn(
-                    "rounded-full border px-3 py-1 text-xs font-black",
-                    verified
-                      ? "border-emerald-300/20 bg-emerald-400/10 text-emerald-200"
-                      : "border-yellow-300/20 bg-yellow-400/10 text-yellow-100"
-                  )}
-                >
-                  {verified ? "Verified" : "Required"}
-                </span>
-              }
-            >
-              {verified ? (
-                <div className="rounded-[26px] border border-emerald-300/20 bg-emerald-400/10 p-5">
-                  <p className="text-lg font-black text-white">Phone verified</p>
-                  <p className="mt-2 text-sm leading-6 text-emerald-100/80">
-                    Your account can use Poolr’s free first-pool experience and join pools normally.
-                  </p>
-                  <p className="mt-2 text-xs text-emerald-200/70">
-                    Verified on {displayDate(account?.phone_verified_at)}
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="rounded-[26px] border border-yellow-300/20 bg-yellow-400/10 p-5">
-                    <p className="text-lg font-black text-white">Verify your phone</p>
-                    <p className="mt-2 text-sm leading-6 text-yellow-100/80">
-                      Save your account first, then send a code to your phone. You must verify before using the free Poolr experience.
-                    </p>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={sendVerificationCode}
-                    disabled={sendingCode || !account?.id}
-                    className="w-full rounded-2xl bg-white px-5 py-4 text-sm font-black text-slate-950 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {sendingCode ? "Sending Code..." : codeSent ? "Send Code Again" : "Send Verification Code"}
-                  </button>
-
-                  <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
-                    <input
-                      value={verificationCode}
-                      onChange={(event) => setVerificationCode(event.target.value)}
-                      placeholder="Enter code"
-                      inputMode="numeric"
-                      className="rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-white outline-none placeholder:text-slate-600 focus:border-emerald-300/40"
-                    />
-
-                    <button
-                      type="button"
-                      onClick={verifyPhoneCode}
-                      disabled={verifyingCode || !account?.id}
-                      className="rounded-2xl bg-emerald-400 px-5 py-3 text-sm font-black text-black transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {verifyingCode ? "Verifying..." : "Verify"}
-                    </button>
-                  </div>
                 </div>
               )}
             </Card>
