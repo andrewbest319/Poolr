@@ -889,21 +889,8 @@ export default function ManagePoolPage() {
 
       if (poolError) throw new Error(poolError.message);
 
-      if (pool.tournament_id) {
-        const tournamentUpdate: Record<string, unknown> = {
-          name: tournamentName,
-          location,
-          lock_time: buildTimestamp(lockDate, lockTime),
-          status,
-        };
-
-        const { error: tournamentError } = await supabase
-          .from("tournaments")
-          .update(tournamentUpdate)
-          .eq("id", pool.tournament_id);
-
-        if (tournamentError) throw new Error(tournamentError.message);
-      }
+      // Tournament metadata is controlled by Poolr/DataGolf and stays read-only here.
+      // Commissioners manage their own pool settings and manual lock state only.
 
       const { error: deletePayoutsError } = await supabase
         .from("payouts")
@@ -1092,9 +1079,9 @@ if (!isCreator) {
   return (
     <main className="min-h-screen bg-[#040816] text-white">
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute left-[-8%] top-[-4%] h-[420px] w-[420px] rounded-full bg-emerald-500/10 blur-3xl" />
-        <div className="absolute right-[-10%] top-[10%] h-[360px] w-[360px] rounded-full bg-cyan-500/10 blur-3xl" />
-        <div className="absolute bottom-[-10%] left-[25%] h-[320px] w-[320px] rounded-full bg-violet-500/10 blur-3xl" />
+        <div className="absolute left-[-8%] top-[-4%] h-[460px] w-[460px] rounded-full bg-emerald-500/10 blur-3xl" />
+        <div className="absolute right-[-10%] top-[10%] h-[420px] w-[420px] rounded-full bg-cyan-500/10 blur-3xl" />
+        <div className="absolute bottom-[-10%] left-[25%] h-[380px] w-[380px] rounded-full bg-violet-500/10 blur-3xl" />
       </div>
 
       <div className="relative mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
@@ -1113,6 +1100,20 @@ if (!isCreator) {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href="/account"
+              className="inline-flex items-center justify-center rounded-2xl bg-white/5 px-4 py-2.5 text-sm font-black text-white ring-1 ring-white/10 transition hover:bg-white/10"
+            >
+              Account Center
+            </Link>
+
+            <Link
+              href="/account/settings"
+              className="inline-flex items-center justify-center rounded-2xl bg-white/5 px-4 py-2.5 text-sm font-black text-white ring-1 ring-white/10 transition hover:bg-white/10"
+            >
+              Account Info
+            </Link>
+
             <Link
               href={`/pool/${pool.id}`}
               className="inline-flex items-center justify-center rounded-2xl bg-white/5 px-4 py-2.5 text-sm font-black text-white ring-1 ring-white/10 transition hover:bg-white/10"
@@ -1133,11 +1134,16 @@ if (!isCreator) {
           </div>
         </div>
 
-
         {poolrUser && (
-          <div className="mb-4 rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-sm text-slate-300">
-            Signed in as <span className="font-black text-white">{poolrUser.full_name}</span>{" "}
-            <span className="text-slate-500">• {poolrUser.email}</span>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-sm text-slate-300">
+            <p>
+              Managing as <span className="font-black text-white">{poolrUser.full_name}</span>{" "}
+              <span className="text-slate-500">• {poolrUser.email}</span>
+            </p>
+
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-300">
+              Commissioner only
+            </p>
           </div>
         )}
 
@@ -1153,50 +1159,57 @@ if (!isCreator) {
           </div>
         )}
 
-        <section className="relative overflow-hidden rounded-[34px] border border-white/10 bg-white/[0.06] p-6 shadow-[0_30px_120px_rgba(0,0,0,0.4)] backdrop-blur-2xl sm:p-8">
-          <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(16,185,129,0.12),rgba(6,182,212,0.08),rgba(255,255,255,0.02))]" />
+        <section className="relative overflow-hidden rounded-[38px] border border-white/10 bg-white/[0.06] p-6 shadow-[0_30px_120px_rgba(0,0,0,0.42)] backdrop-blur-2xl sm:p-8">
+          <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(16,185,129,0.14),rgba(6,182,212,0.08),rgba(255,255,255,0.02))]" />
 
-          <div className="relative z-10 grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
+          <div className="relative z-10 grid gap-8 lg:grid-cols-[1.18fr_0.82fr]">
             <div>
               <div className="mb-4 flex flex-wrap gap-2">
                 <StatusPill tone={isLocked ? "red" : "green"}>
-                  {isLocked ? "LOCKED" : "OPEN"}
+                  {isLocked ? "Locked" : "Open"}
                 </StatusPill>
                 <StatusPill>{format}</StatusPill>
-                <StatusPill tone={premiumEnabled ? "green" : "default"}>
-                  {premiumEnabled ? "Premium Enabled" : "Standard Pool"}
-                </StatusPill>
                 <StatusPill tone="cyan">
                   {entries.length} Member{entries.length === 1 ? "" : "s"}
                 </StatusPill>
+                {payouts.length > 0 ? (
+                  <StatusPill tone={payoutPercentageTotal === 100 ? "green" : "yellow"}>
+                    Payouts {percentage(payoutPercentageTotal)}
+                  </StatusPill>
+                ) : null}
               </div>
 
-              <h2 className="text-3xl font-black text-white sm:text-5xl">{poolName || "Untitled Pool"}</h2>
+              <h2 className="text-4xl font-black tracking-tight text-white sm:text-6xl">
+                {poolName || "Untitled Pool"}
+              </h2>
 
-              <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-300 sm:text-base">
-                Live commissioner dashboard. Set rules, manage invites, track payments,
-                export contacts, tune payouts, and lock the pool before the tournament starts.
+              <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-300 sm:text-base">
+                Everything a commissioner needs in one clean place: rules, invite link,
+                member status, payouts, contact export, and roster lock control.
               </p>
 
-              <div className="mt-6 flex flex-wrap gap-3">
-                <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Tournament</p>
-                  <p className="mt-1 font-bold text-white">{tournamentName || "Not connected"}</p>
-                </div>
+              <div className="mt-7 flex flex-wrap gap-3">
+                <ActionButton variant="secondary" onClick={copyInviteLink}>
+                  {copied ? "Invite Copied" : "Copy Invite"}
+                </ActionButton>
 
-                <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Lock</p>
-                  <p className="mt-1 font-bold text-white">
-                    {buildTimestamp(lockDate, lockTime)
-                      ? displayDateTime(buildTimestamp(lockDate, lockTime))
-                      : "Not set"}
-                  </p>
-                </div>
+                <Link
+                  href={`/join-pool?${
+                    inviteCode
+                      ? `code=${encodeURIComponent(inviteCode)}`
+                      : `poolId=${pool.id}`
+                  }`}
+                  className="inline-flex items-center justify-center rounded-2xl bg-white/5 px-4 py-2.5 text-sm font-black text-white ring-1 ring-white/10 transition hover:bg-white/10"
+                >
+                  Test Join Page
+                </Link>
 
-                <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Invite Code</p>
-                  <p className="mt-1 font-bold tracking-[0.18em] text-emerald-300">{inviteCode || "Not set"}</p>
-                </div>
+                <Link
+                  href={`/pool/${pool.id}/build-team`}
+                  className="inline-flex items-center justify-center rounded-2xl bg-white/5 px-4 py-2.5 text-sm font-black text-white ring-1 ring-white/10 transition hover:bg-white/10"
+                >
+                  Build Team
+                </Link>
               </div>
             </div>
 
@@ -1204,40 +1217,19 @@ if (!isCreator) {
               <StatCard label="Estimated Pot" value={money(estimatedPot)} note="Entry fee × members" tone="green" />
               <StatCard label="Members" value={entries.length} note={`${accountLinkedCount} account-linked`} />
               <StatCard label="Paid" value={paidMembersCount} note="Marked as paid" />
-              <StatCard label="Submitted" value={submittedMembersCount} note="Lineups submitted" />
-              <StatCard label="Email Contacts" value={emailOptInCount} note="Eligible for email follow-up" />
-              <StatCard label="SMS Contacts" value={smsOptInCount} note="Opted into text updates" tone="yellow" />
+              <StatCard label="Submitted" value={submittedMembersCount} note="Teams submitted" />
+              <StatCard label="Email Contacts" value={emailOptInCount} note="Available in CSV" />
+              <StatCard label="SMS Contacts" value={smsOptInCount} note="Opted into texts" tone="yellow" />
             </div>
           </div>
         </section>
 
-        <div className="mt-6 grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+        <div className="mt-6 grid gap-6 xl:grid-cols-[1fr_420px]">
           <div className="space-y-6">
-            <SectionCard title="Pool Identity" subtitle="The main details members see first.">
+            <SectionCard title="Pool Setup" subtitle="The only settings a commissioner should need before launch.">
               <div className="grid gap-4 md:grid-cols-2">
                 <Input label="Pool Name" value={poolName} onChange={setPoolName} />
-                <Input label="Tournament Name" value={tournamentName} onChange={setTournamentName} />
-                <Input label="Location / Course" value={location} onChange={setLocation} />
-                <Select
-                  label="Tournament Status"
-                  value={status}
-                  onChange={(value) => setStatus(value as TournamentStatus)}
-                  options={[
-                    { label: "Draft", value: "Draft" },
-                    { label: "Open", value: "Open" },
-                    { label: "Locked", value: "Locked" },
-                    { label: "Live", value: "Live" },
-                    { label: "Final", value: "Final" },
-                    { label: "Hidden", value: "Hidden" },
-                  ]}
-                />
-                <Input label="Lock Date" value={lockDate} onChange={setLockDate} type="date" />
-                <Input label="Lock Time" value={lockTime} onChange={setLockTime} type="time" />
-              </div>
-            </SectionCard>
 
-            <SectionCard title="Format & Roster Rules" subtitle="The core competition structure.">
-              <div className="grid gap-4 md:grid-cols-2">
                 <Select
                   label="Pool Format"
                   value={format}
@@ -1270,11 +1262,11 @@ if (!isCreator) {
                 />
 
                 <Select
-                  label="Counted Players"
+                  label="Best Count"
                   value={countedPlayers}
                   onChange={setCountedPlayers}
                   options={allowedCountedOptions}
-                  hint="Must be at least half the roster and no more than the roster size."
+                  hint="This many golfers count toward each team score."
                 />
 
                 {format === "Salary Cap" ? (
@@ -1287,16 +1279,24 @@ if (!isCreator) {
                   />
                 ) : (
                   <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-                    <p className="text-sm font-black text-white">Tiered Draft Active</p>
+                    <p className="text-sm font-black text-white">Tiered Draft</p>
                     <p className="mt-2 text-sm leading-6 text-slate-400">
-                      Salary cap is hidden because this pool uses tier-based drafting.
+                      Players draft one golfer from each tier. Salary cap is hidden for this format.
                     </p>
                   </div>
                 )}
+
+                <Input
+                  label="Max Members"
+                  value={maxPlayers}
+                  onChange={setMaxPlayers}
+                  type="number"
+                  hint="Leave blank or 0 for unlimited members."
+                />
               </div>
 
               <div className="mt-5 rounded-2xl border border-white/10 bg-black/20 p-4">
-                <p className="text-sm font-black text-white">Roster Rule Validation</p>
+                <p className="text-sm font-black text-white">Roster Rule</p>
                 <p
                   className={cn(
                     "mt-2 text-sm font-bold",
@@ -1304,22 +1304,55 @@ if (!isCreator) {
                   )}
                 >
                   {rosterValidation
-                    ? `Looks good. ${countedNumber} of ${rosterNumber} players will count.`
-                    : `Invalid rule. Counted players must be at least ${Math.ceil(
-                        rosterNumber / 2
-                      )} and no more than ${rosterNumber}.`}
+                    ? `${countedNumber} of ${rosterNumber} golfers will count. This rule is ready.`
+                    : `Counted golfers must be at least ${Math.ceil(rosterNumber / 2)} and no more than ${rosterNumber}.`}
                 </p>
               </div>
             </SectionCard>
 
-            <SectionCard title="Entry Fee & Payouts" subtitle="Keep the money side organized and transparent.">
+            <SectionCard title="Tournament" subtitle="Tournament details are shown here for context and stay consistent across Poolr.">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Tournament</p>
+                  <p className="mt-2 text-lg font-black text-white">{tournamentName || "Not connected"}</p>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Location</p>
+                  <p className="mt-2 text-lg font-black text-white">{location || "Not set"}</p>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Tournament Status</p>
+                  <p className="mt-2 text-lg font-black text-white">{status}</p>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Scheduled Lock</p>
+                  <p className="mt-2 text-lg font-black text-white">
+                    {buildTimestamp(lockDate, lockTime)
+                      ? displayDateTime(buildTimestamp(lockDate, lockTime))
+                      : "Not set"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-5 rounded-2xl border border-emerald-400/20 bg-emerald-400/[0.06] p-4">
+                <p className="text-sm font-black text-emerald-200">Commissioner control</p>
+                <p className="mt-2 text-sm leading-6 text-slate-400">
+                  Use Pool Lock to close or reopen this specific pool before tournament start.
+                </p>
+              </div>
+            </SectionCard>
+
+            <SectionCard title="Entry Fee & Payouts" subtitle="Organize group payments and prize places. Poolr does not process prize money.">
               <div className="grid gap-4 md:grid-cols-3">
                 <Input
                   label="Entry Fee"
                   value={entryFee}
                   onChange={setEntryFee}
                   type="number"
-                  hint="Per person. Set to 0 for a free group pool."
+                  hint="Set to 0 for a free group pool."
                 />
 
                 <Select
@@ -1333,13 +1366,11 @@ if (!isCreator) {
                   ]}
                 />
 
-                <Input
-                  label="Max Members"
-                  value={maxPlayers}
-                  onChange={setMaxPlayers}
-                  type="number"
-                  hint={hasOwn(pool, "max_players") ? "Saved to Supabase." : "UI only until max_players column exists."}
-                />
+                <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Estimated Pot</p>
+                  <p className="mt-2 text-2xl font-black text-emerald-300">{money(estimatedPot)}</p>
+                  <p className="mt-1 text-sm text-slate-400">Based on current members.</p>
+                </div>
               </div>
 
               <div className="mt-6 flex flex-col justify-between gap-4 rounded-2xl border border-white/10 bg-black/20 p-4 sm:flex-row sm:items-center">
@@ -1418,8 +1449,8 @@ if (!isCreator) {
             </SectionCard>
 
             <SectionCard
-              title="Member Contacts"
-              subtitle="Names, emails, phones, opt-ins, payment status, and team status."
+              title="Members"
+              subtitle="Track team status, payment status, and contact information for this pool."
               right={
                 <div className="flex flex-wrap gap-2">
                   <ActionButton variant="ghost" onClick={copyContactCsv}>
@@ -1523,17 +1554,13 @@ if (!isCreator) {
           </div>
 
           <div className="space-y-6">
-            <SectionCard title="Invite Flow" subtitle="The viral loop: creator unlocks the pool, friends join free.">
+            <SectionCard title="Invite Link" subtitle="Share this with members so they can join and build a team.">
               <div className="space-y-4">
                 <Input
                   label="Invite Code"
                   value={inviteCode}
                   onChange={(value) => setInviteCode(value.toUpperCase())}
-                  hint={
-                    hasOwn(pool, "invite_code")
-                      ? "Saved to Supabase."
-                      : "UI only until invite_code column exists."
-                  }
+                  hint="Short code players can use to join this pool."
                 />
 
                 <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
@@ -1562,82 +1589,7 @@ if (!isCreator) {
               </div>
             </SectionCard>
 
-            <SectionCard title="Premium Features" subtitle="The upgrades that make Poolr feel premium.">
-              <div className="space-y-4">
-                <Toggle
-                  label="Premium Pool"
-                  description={
-                    hasOwn(pool, "premium_enabled")
-                      ? "Saved to Supabase."
-                      : "UI only until premium_enabled column exists."
-                  }
-                  checked={premiumEnabled}
-                  onChange={setPremiumEnabled}
-                />
-                <Toggle
-                  label="Live Leaderboard"
-                  description={
-                    hasOwn(pool, "live_leaderboard_enabled")
-                      ? "Saved to Supabase."
-                      : "UI only until live_leaderboard_enabled column exists."
-                  }
-                  checked={liveLeaderboardEnabled}
-                  onChange={setLiveLeaderboardEnabled}
-                />
-                <Toggle
-                  label="Pool Chat"
-                  description={
-                    hasOwn(pool, "chat_enabled")
-                      ? "Saved to Supabase."
-                      : "UI only until chat_enabled column exists."
-                  }
-                  checked={chatEnabled}
-                  onChange={setChatEnabled}
-                />
-                <Toggle
-                  label="Bonus Scoring"
-                  description={
-                    hasOwn(pool, "bonus_points_enabled")
-                      ? "Saved to Supabase."
-                      : "UI only until bonus_points_enabled column exists."
-                  }
-                  checked={bonusPointsEnabled}
-                  onChange={setBonusPointsEnabled}
-                />
-                <Toggle
-                  label="Hide Teams Before Lock"
-                  description={
-                    hasOwn(pool, "hidden_teams_before_lock")
-                      ? "Saved to Supabase."
-                      : "UI only until hidden_teams_before_lock column exists."
-                  }
-                  checked={hiddenTeamsBeforeLock}
-                  onChange={setHiddenTeamsBeforeLock}
-                />
-              </div>
-            </SectionCard>
-
-            <SectionCard title="Follow-Up Tools" subtitle="Use this after the tournament to turn players into repeat customers.">
-              <div className="space-y-4">
-                <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/[0.06] p-4">
-                  <p className="text-sm font-black text-emerald-200">Recommended follow-up</p>
-                  <p className="mt-2 text-sm leading-6 text-slate-400">
-                    Export the contact CSV after the pool finishes. Message players asking how the experience was, then offer Single Pool, Monthly Pro, or Annual Pro.
-                  </p>
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <StatCard label="Email Leads" value={emailOptInCount} note="Can receive email follow-up" tone="green" />
-                  <StatCard label="SMS Leads" value={smsOptInCount} note="Opted into texts" tone="yellow" />
-                </div>
-
-                <ActionButton variant="secondary" onClick={downloadContactCsv} className="w-full">
-                  Download Contact CSV
-                </ActionButton>
-              </div>
-            </SectionCard>
-
-            <SectionCard title="Pool Lock" subtitle="Control when members can join or edit picks.">
+            <SectionCard title="Pool Lock" subtitle="Close or reopen roster editing for this specific pool.">
               <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                   <div>
@@ -1645,17 +1597,16 @@ if (!isCreator) {
                       {isLocked ? "Pool Locked" : "Pool Open"}
                     </p>
                     <p className="mt-2 text-sm leading-6 text-slate-400">
-                      You can manually lock or unlock this pool before the tournament starts.
-                      Once the tournament starts, the pool is hard locked and cannot be reopened.
+                      Locking stops members from joining or editing teams. You can unlock before tournament start.
                     </p>
                   </div>
 
                   <StatusPill tone={isLocked ? "red" : "green"}>
                     {tournamentStarted
-                      ? "TOURNAMENT LOCK"
+                      ? "Tournament Lock"
                       : manualPoolLocked
-                        ? "MANUAL LOCK"
-                        : "OPEN"}
+                        ? "Manual Lock"
+                        : "Open"}
                   </StatusPill>
                 </div>
 
@@ -1666,7 +1617,7 @@ if (!isCreator) {
                     disabled={saving || manualPoolLocked || tournamentStarted || !isCreator}
                     className="w-full"
                   >
-                    {manualPoolLocked ? "Manually Locked" : "Lock Pool"}
+                    {manualPoolLocked ? "Locked" : "Lock Pool"}
                   </ActionButton>
 
                   <ActionButton
@@ -1681,39 +1632,56 @@ if (!isCreator) {
 
                 <p className="mt-3 text-xs leading-5 text-slate-500">
                   {tournamentStarted
-                    ? "Tournament has started. Teams are locked and the pool cannot be unlocked."
+                    ? "Tournament has started, so teams are locked."
                     : manualPoolLocked
-                      ? "Pool is manually locked. You can still unlock it before tournament start."
-                      : "Pool is open. Members can still join and edit picks before tournament start."}
+                      ? "Pool is manually locked. You can reopen it before tournament start."
+                      : "Pool is open. Members can join and edit picks before lock."}
                 </p>
-
-                {pool.lock_note ? (
-                  <p className="mt-2 text-xs leading-5 text-slate-500">
-                    Last lock note: {String(pool.lock_note)}
-                  </p>
-                ) : null}
               </div>
             </SectionCard>
 
-            <SectionCard title="Danger Zone" subtitle="Actions that materially change the pool.">
-              <div className="grid gap-3">
-                <ActionButton
-                  variant="ghost"
-                  onClick={() =>
-                    setNotice("Duplicate pool flow is not connected yet. We can build this after the product audit.")
-                  }
-                >
-                  Duplicate Pool
-                </ActionButton>
+            <SectionCard title="Member Export" subtitle="Use this to keep commissioner records outside Poolr.">
+              <div className="space-y-4">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <StatCard label="Email Contacts" value={emailOptInCount} note="Included in export" tone="green" />
+                  <StatCard label="SMS Contacts" value={smsOptInCount} note="Opted into texts" tone="yellow" />
+                </div>
 
-                <ActionButton
-                  variant="danger"
-                  onClick={() =>
-                    setNotice("Archive flow is intentionally disabled for now so you do not accidentally hide a live test pool.")
-                  }
-                >
-                  Archive Pool
+                <ActionButton variant="secondary" onClick={downloadContactCsv} className="w-full">
+                  Download Contact CSV
                 </ActionButton>
+              </div>
+            </SectionCard>
+
+            <SectionCard title="Navigation" subtitle="Jump to the pages a commissioner uses most.">
+              <div className="grid gap-3">
+                <Link
+                  href={`/pool/${pool.id}`}
+                  className="inline-flex items-center justify-center rounded-2xl bg-white px-4 py-3 text-sm font-black text-slate-950 transition hover:bg-slate-200"
+                >
+                  Pool Lobby
+                </Link>
+
+                <Link
+                  href={`/pool/${pool.id}/leaderboard`}
+                  className="inline-flex items-center justify-center rounded-2xl bg-emerald-400/15 px-4 py-3 text-sm font-black text-emerald-200 ring-1 ring-emerald-300/20 transition hover:bg-emerald-400/25"
+                >
+                  Leaderboard
+                </Link>
+
+                <Link
+                  href="/account"
+                  className="inline-flex items-center justify-center rounded-2xl bg-white/5 px-4 py-3 text-sm font-black text-white ring-1 ring-white/10 transition hover:bg-white/10"
+                >
+                  Account Center
+                </Link>
+
+                <Link
+                  href="/account/settings"
+                  className="inline-flex items-center justify-center rounded-2xl bg-white/5 px-4 py-3 text-sm font-black text-white ring-1 ring-white/10 transition hover:bg-white/10"
+                >
+                  Account Information
+                </Link>
               </div>
             </SectionCard>
           </div>
