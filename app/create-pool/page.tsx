@@ -12,7 +12,6 @@ import {
 import { supabase } from "../../lib/supabase";
 
 type DraftFormat = "tiered_draft" | "salary_cap";
-type SetupPreset = "balanced" | "strategy" | "major";
 
 type Tournament = {
   id: string;
@@ -112,26 +111,6 @@ function formatTime(dateString: string | null | undefined) {
   });
 }
 
-function formatTournamentMeta(tournament: Tournament | null) {
-  if (!tournament) return "Select a tournament";
-
-  const parts: string[] = [];
-
-  if (tournament.course) parts.push(tournament.course);
-  if (tournament.location) parts.push(tournament.location);
-
-  const start = formatDate(tournament.start_date || tournament.lock_time);
-  const end = formatDate(tournament.end_date);
-
-  if (start && end && start !== end) {
-    parts.push(`${start} – ${end}`);
-  } else if (start) {
-    parts.push(start);
-  }
-
-  return parts.join(" • ") || "Tournament details loading";
-}
-
 function getTournamentSortTime(tournament: Tournament) {
   const value = tournament.start_date || tournament.lock_time || "9999-12-31";
   const parsed = new Date(value);
@@ -163,6 +142,26 @@ function getTournamentLabel(tournament: Tournament) {
   return "Event";
 }
 
+function formatTournamentMeta(tournament: Tournament | null) {
+  if (!tournament) return "Select a tournament";
+
+  const pieces: string[] = [];
+
+  if (tournament.course) pieces.push(tournament.course);
+  if (tournament.location) pieces.push(tournament.location);
+
+  const start = formatDate(tournament.start_date || tournament.lock_time);
+  const end = formatDate(tournament.end_date);
+
+  if (start && end && start !== end) {
+    pieces.push(`${start} – ${end}`);
+  } else if (start) {
+    pieces.push(start);
+  }
+
+  return pieces.join(" • ") || "Tournament details loading";
+}
+
 function formatCurrency(value: string | number) {
   const numberValue =
     typeof value === "number" ? value : Number.parseFloat(String(value || "0"));
@@ -176,33 +175,25 @@ function formatCurrency(value: string | number) {
   }).format(numberValue);
 }
 
-function displayFormat(format: DraftFormat) {
-  return format === "tiered_draft" ? "Tiered Draft" : "Salary Cap";
-}
-
 function formatCap(value: string) {
   const parsed = Number.parseInt(value, 10);
   if (!Number.isFinite(parsed)) return "$50K";
   return `$${Math.round(parsed / 1000)}K`;
 }
 
-function Badge({
-  children,
-  tone = "muted",
-}: {
-  children: ReactNode;
-  tone?: "success" | "muted" | "gold" | "dark" | "blue";
-}) {
+function displayFormat(format: DraftFormat) {
+  return format === "tiered_draft" ? "Tiered Draft" : "Salary Cap";
+}
+
+function Badge({ children, tone = "dark" }: { children: ReactNode; tone?: "green" | "gold" | "blue" | "dark" }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em]",
-        tone === "success" &&
-          "border-emerald-300/25 bg-emerald-400/10 text-emerald-200",
+        "inline-flex items-center rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em]",
+        tone === "green" && "border-emerald-300/25 bg-emerald-300/10 text-emerald-200",
         tone === "gold" && "border-amber-300/25 bg-amber-300/10 text-amber-200",
-        tone === "blue" && "border-sky-300/25 bg-sky-400/10 text-sky-200",
-        tone === "dark" && "border-white/10 bg-black/25 text-neutral-300",
-        tone === "muted" && "border-white/10 bg-white/[0.04] text-neutral-400"
+        tone === "blue" && "border-sky-300/25 bg-sky-300/10 text-sky-200",
+        tone === "dark" && "border-white/10 bg-white/[0.05] text-neutral-300"
       )}
     >
       {children}
@@ -210,17 +201,11 @@ function Badge({
   );
 }
 
-function GlassCard({
-  children,
-  className,
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
+function Card({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <section
       className={cn(
-        "rounded-[30px] border border-white/10 bg-white/[0.055] shadow-[0_22px_70px_rgba(0,0,0,0.32)] backdrop-blur-xl",
+        "rounded-[30px] border border-white/10 bg-white/[0.055] shadow-[0_24px_80px_rgba(0,0,0,0.34)] backdrop-blur-xl",
         className
       )}
     >
@@ -229,46 +214,21 @@ function GlassCard({
   );
 }
 
-function SectionHeader({
-  eyebrow,
-  title,
-  subtitle,
-  right,
-}: {
-  eyebrow?: string;
-  title: string;
-  subtitle: string;
-  right?: ReactNode;
-}) {
+function SectionTitle({ step, title, subtitle }: { step: string; title: string; subtitle: string }) {
   return (
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-      <div>
-        {eyebrow ? (
-          <p className="mb-2 text-[10px] font-black uppercase tracking-[0.25em] text-emerald-300">
-            {eyebrow}
-          </p>
-        ) : null}
-        <h2 className="text-2xl font-black tracking-tight text-white sm:text-3xl">
-          {title}
-        </h2>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-neutral-400">
-          {subtitle}
-        </p>
+    <div>
+      <div className="flex items-center gap-3">
+        <span className="flex h-8 w-8 items-center justify-center rounded-full border border-emerald-300/25 bg-emerald-300/10 text-xs font-black text-emerald-200">
+          {step}
+        </span>
+        <h2 className="text-2xl font-black tracking-tight text-white">{title}</h2>
       </div>
-      {right ? <div className="shrink-0">{right}</div> : null}
+      <p className="mt-3 max-w-2xl text-sm leading-6 text-neutral-400">{subtitle}</p>
     </div>
   );
 }
 
-function Field({
-  label,
-  hint,
-  children,
-}: {
-  label: string;
-  hint?: string;
-  children: ReactNode;
-}) {
+function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
   return (
     <label className="block">
       <div className="flex items-center justify-between gap-3">
@@ -279,7 +239,7 @@ function Field({
           </span>
         ) : null}
       </div>
-      <div className="mt-3">{children}</div>
+      <div className="mt-2.5">{children}</div>
     </label>
   );
 }
@@ -289,7 +249,7 @@ function TextInput(props: InputHTMLAttributes<HTMLInputElement>) {
     <input
       {...props}
       className={cn(
-        "w-full rounded-[20px] border border-white/10 bg-black/25 px-4 py-3.5 text-white outline-none transition placeholder:text-neutral-500 focus:border-emerald-400/50 focus:ring-2 focus:ring-emerald-400/15 disabled:cursor-not-allowed disabled:opacity-60",
+        "w-full rounded-[18px] border border-white/10 bg-black/25 px-4 py-3.5 text-white outline-none transition placeholder:text-neutral-500 focus:border-emerald-300/50 focus:ring-2 focus:ring-emerald-300/15 disabled:cursor-not-allowed disabled:opacity-60",
         props.className
       )}
     />
@@ -301,69 +261,20 @@ function SelectInput(props: SelectHTMLAttributes<HTMLSelectElement>) {
     <select
       {...props}
       className={cn(
-        "w-full rounded-[20px] border border-white/10 bg-black/25 px-4 py-3.5 text-white outline-none transition focus:border-emerald-400/50 focus:ring-2 focus:ring-emerald-400/15",
+        "w-full rounded-[18px] border border-white/10 bg-black/25 px-4 py-3.5 text-white outline-none transition focus:border-emerald-300/50 focus:ring-2 focus:ring-emerald-300/15",
         props.className
       )}
     />
   );
 }
 
-function Toggle({
-  label,
-  description,
-  checked,
-  onChange,
-}: {
-  label: string;
-  description: string;
-  checked: boolean;
-  onChange: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onChange}
-      className={cn(
-        "group flex w-full items-center justify-between gap-4 rounded-[22px] border p-4 text-left transition",
-        checked
-          ? "border-emerald-300/25 bg-emerald-400/[0.08]"
-          : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-white/[0.04]"
-      )}
-    >
-      <span>
-        <span className="block text-sm font-bold text-white">{label}</span>
-        <span className="mt-1 block text-sm leading-5 text-neutral-400">
-          {description}
-        </span>
-      </span>
-      <span
-        className={cn(
-          "relative h-7 w-12 shrink-0 rounded-full border transition",
-          checked
-            ? "border-emerald-300/40 bg-emerald-400/80"
-            : "border-white/10 bg-white/10"
-        )}
-      >
-        <span
-          className={cn(
-            "absolute top-1 h-5 w-5 rounded-full bg-white shadow transition",
-            checked ? "left-6" : "left-1"
-          )}
-        />
-      </span>
-    </button>
-  );
-}
-
-function FormatCard({
+function FormatButton({
   title,
-  badge,
   description,
   selected,
   onClick,
 }: {
   title: string;
-  badge?: string;
   description: string;
   selected: boolean;
   onClick: () => void;
@@ -373,43 +284,39 @@ function FormatCard({
       type="button"
       onClick={onClick}
       className={cn(
-        "group relative overflow-hidden rounded-[28px] border p-6 text-left transition",
+        "relative rounded-[24px] border p-5 text-left transition",
         selected
-          ? "border-emerald-300/45 bg-emerald-400/[0.13] shadow-[0_0_0_1px_rgba(52,211,153,0.18)]"
-          : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-white/[0.055]"
+          ? "border-emerald-300/45 bg-emerald-300/[0.12] shadow-[0_0_0_1px_rgba(52,211,153,0.16)]"
+          : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-white/[0.045]"
       )}
     >
-      <div
-        className={cn(
-          "absolute inset-x-6 top-0 h-px",
-          selected ? "bg-emerald-300/60" : "bg-white/10"
-        )}
-      />
       <div className="flex items-start justify-between gap-4">
-        <h3 className="text-xl font-black text-white">{title}</h3>
-        {selected ? <Badge tone="success">Selected</Badge> : null}
-      </div>
-      {badge ? (
-        <div className="mt-4">
-          <Badge tone="gold">{badge}</Badge>
+        <div>
+          <h3 className="text-lg font-black text-white">{title}</h3>
+          <p className="mt-2 text-sm leading-6 text-neutral-400">{description}</p>
         </div>
-      ) : null}
-      <p className="mt-4 text-sm leading-6 text-neutral-400">{description}</p>
+        <span
+          className={cn(
+            "mt-1 h-5 w-5 rounded-full border transition",
+            selected ? "border-emerald-200 bg-emerald-300" : "border-white/20 bg-white/5"
+          )}
+        />
+      </div>
     </button>
   );
 }
 
-function PresetCard({
-  title,
-  description,
+function TournamentButton({
+  tournament,
   selected,
   onClick,
 }: {
-  title: string;
-  description: string;
+  tournament: Tournament;
   selected: boolean;
   onClick: () => void;
 }) {
+  const lockDate = formatDate(tournament.lock_time || tournament.start_date);
+
   return (
     <button
       type="button"
@@ -417,63 +324,23 @@ function PresetCard({
       className={cn(
         "rounded-[22px] border p-4 text-left transition",
         selected
-          ? "border-emerald-300/35 bg-emerald-400/[0.10]"
-          : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-white/[0.04]"
+          ? "border-emerald-300/45 bg-emerald-300/[0.12]"
+          : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-white/[0.045]"
       )}
     >
-      <p className="text-sm font-black text-white">{title}</p>
-      <p className="mt-1 text-xs leading-5 text-neutral-400">{description}</p>
-    </button>
-  );
-}
-
-function TournamentCard({
-  tournament,
-  isSelected,
-  onClick,
-}: {
-  tournament: Tournament;
-  isSelected: boolean;
-  onClick: () => void;
-}) {
-  const lockDate = formatDate(tournament.lock_time || tournament.start_date);
-  const lockTime = formatTime(tournament.lock_time);
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "relative min-h-[190px] overflow-hidden rounded-[26px] border p-5 text-left transition",
-        isSelected
-          ? "border-emerald-300/45 bg-emerald-400/[0.12]"
-          : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-white/[0.055]"
-      )}
-    >
-      <div className="absolute -right-12 -top-12 h-28 w-28 rounded-full bg-emerald-300/10 blur-2xl" />
-      <div className="relative flex h-full flex-col justify-between">
-        <div>
-          <div className="flex items-center justify-between gap-3">
-            <Badge tone={tournament.is_major ? "gold" : "dark"}>
-              {getTournamentLabel(tournament)}
-            </Badge>
-            {isSelected ? <Badge tone="success">Chosen</Badge> : null}
-          </div>
-          <h3 className="mt-4 text-xl font-black tracking-tight text-white">
-            {tournament.name}
-          </h3>
-          <p className="mt-2 text-sm leading-6 text-neutral-400">
-            {formatTournamentMeta(tournament)}
-          </p>
-        </div>
-
-        {lockDate ? (
-          <p className="mt-5 text-[10px] font-black uppercase tracking-[0.18em] text-neutral-500">
-            Locks {lockDate}
-            {lockTime ? ` • ${lockTime}` : ""}
-          </p>
-        ) : null}
+      <div className="flex items-center justify-between gap-3">
+        <Badge tone={tournament.is_major ? "gold" : "dark"}>{getTournamentLabel(tournament)}</Badge>
+        {selected ? <span className="text-xs font-black text-emerald-200">Selected</span> : null}
       </div>
+      <h3 className="mt-4 text-base font-black text-white">{tournament.name}</h3>
+      <p className="mt-2 line-clamp-2 text-sm leading-5 text-neutral-400">
+        {formatTournamentMeta(tournament)}
+      </p>
+      {lockDate ? (
+        <p className="mt-4 text-[10px] font-black uppercase tracking-[0.18em] text-neutral-500">
+          Locks {lockDate}
+        </p>
+      ) : null}
     </button>
   );
 }
@@ -484,53 +351,23 @@ function PreviewRow({ label, value }: { label: string; value: string }) {
       <span className="text-[10px] font-black uppercase tracking-[0.18em] text-neutral-500">
         {label}
       </span>
-      <span className="max-w-[58%] text-right text-sm font-bold text-white">
-        {value}
-      </span>
+      <span className="max-w-[62%] text-right text-sm font-bold text-white">{value}</span>
     </div>
   );
 }
 
-function StepRail({
-  poolName,
-  selectedTournament,
-  draftFormat,
-}: {
-  poolName: string;
-  selectedTournament: Tournament | null;
-  draftFormat: DraftFormat;
-}) {
-  const items = [
-    { label: "Format", done: true },
-    { label: "Scoring", done: true },
-    { label: "Basics", done: Boolean(poolName.trim()) },
-    { label: "Tournament", done: Boolean(selectedTournament) },
-  ];
-
+function DotStep({ label, active, done }: { label: string; active?: boolean; done?: boolean }) {
   return (
-    <div className="grid gap-3 sm:grid-cols-4">
-      {items.map((item, index) => (
-        <div
-          key={item.label}
-          className={cn(
-            "rounded-[20px] border p-4",
-            item.done
-              ? "border-emerald-300/25 bg-emerald-400/[0.08]"
-              : "border-white/10 bg-black/20"
-          )}
-        >
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-500">
-            0{index + 1}
-          </p>
-          <p className="mt-2 text-sm font-black text-white">{item.label}</p>
-          <p className="mt-1 text-xs text-neutral-500">
-            {item.done ? "Ready" : "Needed"}
-          </p>
-        </div>
-      ))}
-      <div className="hidden" aria-hidden="true">
-        {displayFormat(draftFormat)}
-      </div>
+    <div className="flex items-center gap-2">
+      <span
+        className={cn(
+          "h-2.5 w-2.5 rounded-full",
+          active || done ? "bg-emerald-300" : "bg-white/20"
+        )}
+      />
+      <span className={cn("text-xs font-black uppercase tracking-[0.16em]", active || done ? "text-white" : "text-neutral-500")}>
+        {label}
+      </span>
     </div>
   );
 }
@@ -542,27 +379,16 @@ export default function CreatePoolPage() {
   const [poolrUser, setPoolrUser] = useState<PoolrUser | null>(null);
   const [loadingPoolrUser, setLoadingPoolrUser] = useState(true);
 
-  const [setupPreset, setSetupPreset] = useState<SetupPreset>("balanced");
   const [poolName, setPoolName] = useState("");
-  const [entryFee, setEntryFee] = useState("25");
   const [draftFormat, setDraftFormat] = useState<DraftFormat>("tiered_draft");
-
   const [rosterSize, setRosterSize] = useState<number>(6);
   const countedOptions = useMemo(() => getCountedOptions(rosterSize), [rosterSize]);
   const [playersCounted, setPlayersCounted] = useState<number>(4);
-
   const [tierRule, setTierRule] = useState("1 golfer from each tier");
   const [salaryCap, setSalaryCap] = useState("50000");
+  const [entryFee, setEntryFee] = useState("0");
+  const [allowFreePool, setAllowFreePool] = useState(true);
   const [maxPlayers, setMaxPlayers] = useState("20");
-
-  const [bonusLeader, setBonusLeader] = useState(true);
-  const [bonusTop5, setBonusTop5] = useState(true);
-  const [bonusTop10, setBonusTop10] = useState(true);
-
-  const [showLiveLeaderboard, setShowLiveLeaderboard] = useState(true);
-  const [allowTrashTalk, setAllowTrashTalk] = useState(true);
-  const [hideRostersUntilLock, setHideRostersUntilLock] = useState(true);
-  const [allowFreePool, setAllowFreePool] = useState(false);
 
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [selectedTournamentId, setSelectedTournamentId] = useState("");
@@ -682,63 +508,27 @@ export default function CreatePoolPage() {
   }, [tournaments]);
 
   const selectedTournamentMeta = formatTournamentMeta(selectedTournament);
-  const bonusCount = [bonusLeader, bonusTop5, bonusTop10].filter(Boolean).length;
-  const experienceCount = [
-    showLiveLeaderboard,
-    allowTrashTalk,
-    hideRostersUntilLock,
-  ].filter(Boolean).length;
   const previewJoinLink =
     createdCode && typeof window !== "undefined"
       ? `${window.location.origin}/join-pool?code=${encodeURIComponent(createdCode)}`
       : "";
 
-  function applyPreset(preset: SetupPreset) {
-    setSetupPreset(preset);
+  const rulesReady = Boolean(poolName.trim()) && Boolean(selectedTournamentId);
 
-    if (preset === "balanced") {
-      setDraftFormat("tiered_draft");
+  function quickDefault(format: DraftFormat) {
+    setDraftFormat(format);
+
+    if (format === "tiered_draft") {
       setRosterSize(6);
       setPlayersCounted(4);
       setTierRule("1 golfer from each tier");
       setSalaryCap("50000");
-      setMaxPlayers("20");
-      setBonusLeader(true);
-      setBonusTop5(true);
-      setBonusTop10(true);
-      setShowLiveLeaderboard(true);
-      setAllowTrashTalk(true);
-      setHideRostersUntilLock(true);
       return;
     }
 
-    if (preset === "strategy") {
-      setDraftFormat("salary_cap");
-      setRosterSize(8);
-      setPlayersCounted(5);
-      setSalaryCap("75000");
-      setMaxPlayers("24");
-      setBonusLeader(true);
-      setBonusTop5(true);
-      setBonusTop10(false);
-      setShowLiveLeaderboard(true);
-      setAllowTrashTalk(true);
-      setHideRostersUntilLock(true);
-      return;
-    }
-
-    setDraftFormat("tiered_draft");
-    setRosterSize(10);
-    setPlayersCounted(6);
-    setTierRule("Major setup: 1 golfer from each tier");
-    setSalaryCap("100000");
-    setMaxPlayers("32");
-    setBonusLeader(true);
-    setBonusTop5(true);
-    setBonusTop10(true);
-    setShowLiveLeaderboard(true);
-    setAllowTrashTalk(true);
-    setHideRostersUntilLock(true);
+    setRosterSize(6);
+    setPlayersCounted(4);
+    setSalaryCap("50000");
   }
 
   async function handleCopyCode() {
@@ -883,15 +673,15 @@ export default function CreatePoolPage() {
 
   async function saveOptionalFeatureSettings(poolId: string) {
     const optionalPayload = {
-      setup_preset: setupPreset,
+      setup_preset: "clean_default",
       premium_enabled: true,
-      live_leaderboard_enabled: showLiveLeaderboard,
-      chat_enabled: allowTrashTalk,
-      bonus_points_enabled: bonusLeader || bonusTop5 || bonusTop10,
-      bonus_leader_enabled: bonusLeader,
-      bonus_top_5_enabled: bonusTop5,
-      bonus_top_10_enabled: bonusTop10,
-      hidden_teams_before_lock: hideRostersUntilLock,
+      live_leaderboard_enabled: true,
+      chat_enabled: true,
+      bonus_points_enabled: true,
+      bonus_leader_enabled: true,
+      bonus_top_5_enabled: true,
+      bonus_top_10_enabled: true,
+      hidden_teams_before_lock: true,
       payment_mode: allowFreePool ? "free" : "pay-later",
     };
 
@@ -901,7 +691,7 @@ export default function CreatePoolPage() {
       .eq("id", poolId);
 
     if (error) {
-      console.warn("Optional premium fields were not saved:", error.message);
+      console.warn("Optional feature settings were not saved:", error.message);
     }
   }
 
@@ -949,18 +739,16 @@ export default function CreatePoolPage() {
       const finalInviteCode = createdPool.invite_code || inviteCode;
       const inviteLink =
         typeof window !== "undefined"
-          ? `${window.location.origin}/join-pool?code=${encodeURIComponent(
-              finalInviteCode
-            )}`
+          ? `${window.location.origin}/join-pool?code=${encodeURIComponent(finalInviteCode)}`
           : `/join-pool?code=${encodeURIComponent(finalInviteCode)}`;
 
       setCreatedCode(finalInviteCode);
       setCreatedInviteLink(inviteLink);
-      setSuccessMessage("Pool created. Sending you to build the board...");
+      setSuccessMessage("Pool created. Opening the golfer board...");
 
       window.setTimeout(() => {
         router.push(`/pool/${createdPool.id}/build-team`);
-      }, 650);
+      }, 600);
     } catch (error) {
       console.error("Failed to create pool:", error);
       setErrorMessage(
@@ -974,118 +762,113 @@ export default function CreatePoolPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#040816] text-white">
+    <main className="min-h-screen bg-[#030712] text-white">
       <div className="relative isolate overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_8%_6%,rgba(16,185,129,0.24),transparent_26%),radial-gradient(circle_at_92%_11%,rgba(59,130,246,0.15),transparent_24%),radial-gradient(circle_at_55%_90%,rgba(245,158,11,0.08),transparent_28%),linear-gradient(to_bottom,#040816,#071221_42%,#040816)]" />
-        <div className="absolute left-1/2 top-[-210px] h-[460px] w-[820px] -translate-x-1/2 rounded-full bg-emerald-400/10 blur-[150px]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_12%_0%,rgba(16,185,129,0.20),transparent_28%),radial-gradient(circle_at_88%_12%,rgba(59,130,246,0.14),transparent_26%),linear-gradient(to_bottom,#030712,#06121f_46%,#030712)]" />
+        <div className="absolute left-1/2 top-[-240px] h-[500px] w-[900px] -translate-x-1/2 rounded-full bg-emerald-300/10 blur-[160px]" />
         <div className="absolute inset-x-0 top-0 h-px bg-white/10" />
 
-        <div className="relative mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-          <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_400px] lg:items-start">
-            <div className="min-w-0 space-y-6">
-              <div className="overflow-hidden rounded-[34px] border border-white/10 bg-white/[0.055] shadow-[0_24px_100px_rgba(0,0,0,0.45)] backdrop-blur-xl">
-                <div className="relative p-6 sm:p-8">
-                  <div className="absolute right-0 top-0 h-40 w-40 rounded-full bg-emerald-300/10 blur-3xl" />
-                  <div className="relative flex flex-wrap items-center gap-3">
-                    <Badge tone="success">
-                      <span className="h-2 w-2 rounded-full bg-emerald-300" />
-                      Create Pool
-                    </Badge>
-                    <Badge tone="dark">Manager Control Center</Badge>
-                    <Badge tone="blue">No clutter</Badge>
-                  </div>
-
-                  <div className="relative mt-6 grid gap-6 xl:grid-cols-[1fr_300px] xl:items-end">
-                    <div>
-                      <h1 className="max-w-4xl text-4xl font-black tracking-tight text-white sm:text-5xl lg:text-6xl">
-                        Build a golf pool that feels premium before the first tee shot.
-                      </h1>
-                      <p className="mt-4 max-w-2xl text-base leading-7 text-neutral-400">
-                        Choose the draft format, lock in the scoring, pick the tournament,
-                        and create a clean invite-ready pool in one smooth setup.
-                      </p>
-                    </div>
-
-                    <div className="rounded-[28px] border border-emerald-300/20 bg-emerald-400/[0.08] p-5">
-                      <p className="text-[10px] font-black uppercase tracking-[0.22em] text-emerald-200">
-                        Flow
-                      </p>
-                      <div className="mt-4 space-y-3 text-sm font-bold text-white">
-                        <p>1. Create the pool</p>
-                        <p>2. Build the golfer board</p>
-                        <p>3. Invite the group</p>
-                      </div>
-                    </div>
-                  </div>
+        <div className="relative mx-auto max-w-7xl px-4 py-6 pb-28 sm:px-6 lg:px-8 lg:pb-12">
+          <header className="mb-6 rounded-[34px] border border-white/10 bg-white/[0.055] p-6 shadow-[0_24px_100px_rgba(0,0,0,0.42)] backdrop-blur-xl sm:p-8">
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <Badge tone="green">Create Pool</Badge>
+                  <Badge tone="dark">Tournament Setup</Badge>
                 </div>
-
-                <div className="border-t border-white/10 bg-black/15 p-4 sm:p-5">
-                  <StepRail
-                    poolName={poolName}
-                    selectedTournament={selectedTournament}
-                    draftFormat={draftFormat}
-                  />
-                </div>
+                <h1 className="mt-6 max-w-4xl text-4xl font-black tracking-tight text-white sm:text-5xl lg:text-6xl">
+                  Create your pool.
+                </h1>
+                <p className="mt-4 max-w-2xl text-base leading-7 text-neutral-400">
+                  Pick the tournament, set the rules, and move straight into building the golfer board.
+                </p>
               </div>
 
-              <GlassCard className="p-6 sm:p-7">
-                <SectionHeader
-                  eyebrow="Fast start"
-                  title="Start with the right setup"
-                  subtitle="Pick a polished default, then tweak anything. This makes the page feel fast instead of overwhelming."
-                  right={<Badge tone="gold">Recommended</Badge>}
+              <div className="grid gap-3 rounded-[26px] border border-white/10 bg-black/20 p-4 sm:grid-cols-3 lg:min-w-[430px]">
+                <DotStep label="Tournament" active={!selectedTournament} done={Boolean(selectedTournament)} />
+                <DotStep label="Rules" active={Boolean(selectedTournament) && !poolName.trim()} done={Boolean(poolName.trim())} />
+                <DotStep label="Build Team" active={rulesReady} />
+              </div>
+            </div>
+          </header>
+
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start">
+            <div className="space-y-6">
+              <Card className="p-5 sm:p-7">
+                <SectionTitle
+                  step="1"
+                  title="Tournament"
+                  subtitle="Choose the event your group is playing. The golfer board will use this tournament after the pool is created."
                 />
 
-                <div className="mt-6 grid gap-3 md:grid-cols-3">
-                  <PresetCard
-                    title="Classic Poolr"
-                    description="6 golfers, best 4 count, tiered draft, full live experience."
-                    selected={setupPreset === "balanced"}
-                    onClick={() => applyPreset("balanced")}
-                  />
-                  <PresetCard
-                    title="Strategy Night"
-                    description="Salary cap, bigger roster, sharper decisions for advanced groups."
-                    selected={setupPreset === "strategy"}
-                    onClick={() => applyPreset("strategy")}
-                  />
-                  <PresetCard
-                    title="Major Weekend"
-                    description="Bigger field, bigger roster, every bonus turned on."
-                    selected={setupPreset === "major"}
-                    onClick={() => applyPreset("major")}
-                  />
+                <div className="mt-6 space-y-5">
+                  {loadingTournaments ? (
+                    <div className="rounded-[22px] border border-white/10 bg-black/20 p-5 text-sm text-neutral-400">
+                      Loading tournaments...
+                    </div>
+                  ) : tournaments.length === 0 ? (
+                    <div className="rounded-[22px] border border-white/10 bg-black/20 p-5 text-sm text-neutral-400">
+                      No tournaments are visible yet. Add or unhide a tournament in Supabase.
+                    </div>
+                  ) : (
+                    <>
+                      <div className="grid gap-3 md:grid-cols-3">
+                        {featuredTournaments.map((tournament) => (
+                          <TournamentButton
+                            key={tournament.id}
+                            tournament={tournament}
+                            selected={selectedTournamentId === tournament.id}
+                            onClick={() => setSelectedTournamentId(tournament.id)}
+                          />
+                        ))}
+                      </div>
+
+                      <Field label="All tournaments" hint={`${tournaments.length} available`}>
+                        <SelectInput
+                          value={selectedTournamentId}
+                          onChange={(event) => setSelectedTournamentId(event.target.value)}
+                        >
+                          {tournaments.map((tournament) => {
+                            const eventDate = formatDate(tournament.start_date || tournament.lock_time);
+
+                            return (
+                              <option key={tournament.id} value={tournament.id}>
+                                {tournament.name}
+                                {eventDate ? ` — ${eventDate}` : ""}
+                              </option>
+                            );
+                          })}
+                        </SelectInput>
+                      </Field>
+                    </>
+                  )}
                 </div>
-              </GlassCard>
+              </Card>
 
-              <GlassCard className="p-6 sm:p-7">
-                <SectionHeader
-                  eyebrow="Step 1"
-                  title="Draft Format"
-                  subtitle="This is the backbone of the pool. Tiered Draft is the clean default; Salary Cap is the advanced strategy mode."
-                  right={<Badge tone="gold">Core decision</Badge>}
+              <Card className="p-5 sm:p-7">
+                <SectionTitle
+                  step="2"
+                  title="Format"
+                  subtitle="Keep it simple with tiers or make it more strategic with a salary cap."
                 />
 
-                <div className="mt-6 grid gap-4 md:grid-cols-2">
-                  <FormatCard
+                <div className="mt-6 grid gap-3 md:grid-cols-2">
+                  <FormatButton
                     title="Tiered Draft"
-                    badge="Best default"
-                    description="Golfers are grouped into tiers and each participant picks across the board. It feels fair, simple, and perfect for most friend groups."
+                    description="Golfers are grouped by tier. Each entry picks across the board."
                     selected={draftFormat === "tiered_draft"}
-                    onClick={() => setDraftFormat("tiered_draft")}
+                    onClick={() => quickDefault("tiered_draft")}
                   />
-
-                  <FormatCard
+                  <FormatButton
                     title="Salary Cap"
-                    badge="Advanced"
-                    description="Each participant gets a fake budget and builds a roster by spending on golfers. Better for groups that want more strategy."
+                    description="Each entry builds a roster using a fake team budget."
                     selected={draftFormat === "salary_cap"}
-                    onClick={() => setDraftFormat("salary_cap")}
+                    onClick={() => quickDefault("salary_cap")}
                   />
                 </div>
 
                 <div className="mt-6 grid gap-4 md:grid-cols-3">
-                  <Field label="Roster Size" hint="max 10">
+                  <Field label="Roster size">
                     <SelectInput
                       value={rosterSize}
                       onChange={(event) => setRosterSize(Number(event.target.value))}
@@ -1098,7 +881,7 @@ export default function CreatePoolPage() {
                     </SelectInput>
                   </Field>
 
-                  <Field label="Players Counted" hint="best finishers">
+                  <Field label="Players counted" hint="best scores">
                     <SelectInput
                       value={playersCounted}
                       onChange={(event) => setPlayersCounted(Number(event.target.value))}
@@ -1111,15 +894,8 @@ export default function CreatePoolPage() {
                     </SelectInput>
                   </Field>
 
-                  {draftFormat === "tiered_draft" ? (
-                    <Field label="Tier Rule" hint="editable">
-                      <TextInput
-                        value={tierRule}
-                        onChange={(event) => setTierRule(event.target.value)}
-                      />
-                    </Field>
-                  ) : (
-                    <Field label="Salary Cap" hint="fake budget">
+                  {draftFormat === "salary_cap" ? (
+                    <Field label="Salary cap" hint="fake budget">
                       <SelectInput
                         value={salaryCap}
                         onChange={(event) => setSalaryCap(event.target.value)}
@@ -1131,293 +907,156 @@ export default function CreatePoolPage() {
                         ))}
                       </SelectInput>
                     </Field>
-                  )}
-                </div>
-              </GlassCard>
-
-              <GlassCard className="p-6 sm:p-7">
-                <SectionHeader
-                  eyebrow="Step 2"
-                  title="Scoring and Experience"
-                  subtitle="Make the pool feel alive all tournament. These are the features that separate Poolr from a spreadsheet."
-                />
-
-                <div className="mt-6 grid gap-4 lg:grid-cols-2">
-                  <div className="rounded-[28px] border border-white/10 bg-black/20 p-5">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-black text-white">Bonus scoring</p>
-                        <p className="mt-2 text-sm leading-6 text-neutral-400">
-                          Reward golfers who are making noise each round.
-                        </p>
-                      </div>
-                      <Badge tone="dark">{bonusCount}/3 on</Badge>
-                    </div>
-                    <div className="mt-4 space-y-3">
-                      <Toggle
-                        label="Round leader bonus"
-                        description="Extra juice when a golfer leads after a round."
-                        checked={bonusLeader}
-                        onChange={() => setBonusLeader((previous) => !previous)}
-                      />
-                      <Toggle
-                        label="Top 5 bonus"
-                        description="Reward golfers pushing near the top of the board."
-                        checked={bonusTop5}
-                        onChange={() => setBonusTop5((previous) => !previous)}
-                      />
-                      <Toggle
-                        label="Top 10 bonus"
-                        description="Keep more teams alive across the weekend."
-                        checked={bonusTop10}
-                        onChange={() => setBonusTop10((previous) => !previous)}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="rounded-[28px] border border-white/10 bg-black/20 p-5">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-black text-white">Pool energy</p>
-                        <p className="mt-2 text-sm leading-6 text-neutral-400">
-                          Keep teams private before lock and exciting after the first tee shot.
-                        </p>
-                      </div>
-                      <Badge tone="dark">{experienceCount}/3 on</Badge>
-                    </div>
-                    <div className="mt-4 space-y-3">
-                      <Toggle
-                        label="Live leaderboard"
-                        description="Give the group a premium live standings view."
-                        checked={showLiveLeaderboard}
-                        onChange={() => setShowLiveLeaderboard((previous) => !previous)}
-                      />
-                      <Toggle
-                        label="Pool chat / trash talk"
-                        description="Let the group react while the tournament unfolds."
-                        checked={allowTrashTalk}
-                        onChange={() => setAllowTrashTalk((previous) => !previous)}
-                      />
-                      <Toggle
-                        label="Hide rosters until lock"
-                        description="No one sees anyone else’s team before the tournament starts."
-                        checked={hideRostersUntilLock}
-                        onChange={() => setHideRostersUntilLock((previous) => !previous)}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </GlassCard>
-
-              <GlassCard className="p-6 sm:p-7">
-                <SectionHeader
-                  eyebrow="Step 3"
-                  title="Pool Basics"
-                  subtitle="Name the pool, set the group size, and optionally show a group buy-in for your manager tracking."
-                />
-
-                <div className="mt-6 grid gap-4 md:grid-cols-3">
-                  <div className="md:col-span-2">
-                    <Field label="Pool Name" hint="required">
+                  ) : (
+                    <Field label="Tier rule" hint="editable">
                       <TextInput
-                        value={poolName}
-                        onChange={(event) => setPoolName(event.target.value)}
-                        placeholder="Example: Sunday Major Pool"
+                        value={tierRule}
+                        onChange={(event) => setTierRule(event.target.value)}
                       />
                     </Field>
-                  </div>
+                  )}
+                </div>
+              </Card>
 
-                  <Field label="Max Entries" hint="optional">
+              <Card className="p-5 sm:p-7">
+                <SectionTitle
+                  step="3"
+                  title="Pool details"
+                  subtitle="Name the pool and set the entry settings your group will see."
+                />
+
+                <div className="mt-6 grid gap-4 md:grid-cols-2">
+                  <Field label="Pool name">
+                    <TextInput
+                      value={poolName}
+                      onChange={(event) => setPoolName(event.target.value)}
+                      placeholder="Sunday Major Pool"
+                    />
+                  </Field>
+
+                  <Field label="Max entries">
                     <SelectInput
                       value={maxPlayers}
                       onChange={(event) => setMaxPlayers(event.target.value)}
                     >
                       {MAX_PLAYER_OPTIONS.map((option) => (
                         <option key={option} value={option}>
-                          {option} entries
+                          Up to {option}
                         </option>
                       ))}
                     </SelectInput>
                   </Field>
+                </div>
 
-                  <Field label="Group Buy-In" hint="manager display">
-                    <TextInput
-                      type="number"
-                      min="0"
-                      step="1"
-                      value={entryFee}
-                      disabled={allowFreePool}
-                      onChange={(event) => setEntryFee(event.target.value)}
-                    />
-                  </Field>
+                <div className="mt-4 rounded-[24px] border border-white/10 bg-black/20 p-4">
+                  <div className="flex flex-col gap-4 md:flex-row md:items-end">
+                    <div className="flex-1">
+                      <Field label="Group buy-in" hint="optional tracking">
+                        <TextInput
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={allowFreePool ? "0" : entryFee}
+                          onChange={(event) => {
+                            setEntryFee(event.target.value);
+                            setAllowFreePool(Number.parseFloat(event.target.value || "0") <= 0);
+                          }}
+                          disabled={allowFreePool}
+                          placeholder="0"
+                        />
+                      </Field>
+                    </div>
 
-                  <div className="md:col-span-2">
-                    <Toggle
-                      label="Free group pool"
-                      description="Set the group buy-in display to $0. Great for casual pools, office pools, and first runs."
-                      checked={allowFreePool}
-                      onChange={() => setAllowFreePool((previous) => !previous)}
-                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAllowFreePool((current) => {
+                          const next = !current;
+                          if (next) setEntryFee("0");
+                          if (!next && Number.parseFloat(entryFee || "0") <= 0) setEntryFee("25");
+                          return next;
+                        });
+                      }}
+                      className={cn(
+                        "rounded-[18px] border px-5 py-3.5 text-sm font-black transition",
+                        allowFreePool
+                          ? "border-emerald-300/30 bg-emerald-300/10 text-emerald-200"
+                          : "border-white/10 bg-white/[0.04] text-white hover:border-white/20"
+                      )}
+                    >
+                      {allowFreePool ? "Free pool" : "Buy-in on"}
+                    </button>
                   </div>
                 </div>
-              </GlassCard>
 
-              <GlassCard className="p-6 sm:p-7">
-                <SectionHeader
-                  eyebrow="Step 4"
-                  title="Tournament"
-                  subtitle="The clean version: show the top upcoming events, then let the manager use the dropdown for everything else."
-                  right={
-                    <Badge tone="muted">
-                      {loadingTournaments
-                        ? "Loading"
-                        : `${tournaments.length} event${tournaments.length === 1 ? "" : "s"}`}
-                    </Badge>
-                  }
-                />
-
-                <div className="mt-6 space-y-5">
-                  {loadingTournaments ? (
-                    <div className="rounded-[24px] border border-white/10 bg-black/20 p-5 text-neutral-400">
-                      Loading tournaments...
-                    </div>
-                  ) : tournaments.length === 0 ? (
-                    <div className="rounded-[24px] border border-white/10 bg-black/20 p-5 text-neutral-400">
-                      No tournaments available yet. Add or unhide a tournament in Supabase.
-                    </div>
-                  ) : (
-                    <>
-                      <div className="grid gap-4 xl:grid-cols-3">
-                        {featuredTournaments.map((tournament) => (
-                          <TournamentCard
-                            key={tournament.id}
-                            tournament={tournament}
-                            isSelected={selectedTournamentId === tournament.id}
-                            onClick={() => setSelectedTournamentId(tournament.id)}
-                          />
-                        ))}
-                      </div>
-
-                      <Field label="All Tournaments" hint="dropdown">
-                        <SelectInput
-                          value={selectedTournamentId}
-                          onChange={(event) => setSelectedTournamentId(event.target.value)}
-                        >
-                          {tournaments.map((tournament) => (
-                            <option key={tournament.id} value={tournament.id}>
-                              {tournament.name}
-                              {formatDate(tournament.start_date || tournament.lock_time)
-                                ? ` — ${formatDate(tournament.start_date || tournament.lock_time)}`
-                                : ""}
-                            </option>
-                          ))}
-                        </SelectInput>
-                      </Field>
-                    </>
-                  )}
+                <div className="mt-5 rounded-[24px] border border-emerald-300/15 bg-emerald-300/[0.06] p-4">
+                  <p className="text-sm font-bold text-emerald-100">
+                    Live leaderboard, hidden rosters before lock, chat, and bonus scoring are turned on by default.
+                  </p>
                 </div>
-              </GlassCard>
+              </Card>
 
               {(errorMessage || successMessage) && (
                 <div
                   className={cn(
-                    "rounded-[26px] border p-5",
+                    "rounded-[24px] border p-5",
                     successMessage
-                      ? "border-emerald-400/20 bg-emerald-400/10"
+                      ? "border-emerald-300/20 bg-emerald-300/10"
                       : "border-red-400/20 bg-red-400/10"
                   )}
                 >
                   <p
                     className={cn(
                       "text-sm font-bold",
-                      successMessage ? "text-emerald-300" : "text-red-300"
+                      successMessage ? "text-emerald-200" : "text-red-200"
                     )}
                   >
                     {successMessage || errorMessage}
                   </p>
                 </div>
               )}
-
-              <div className="hidden rounded-[30px] border border-white/10 bg-white/[0.055] p-5 sm:flex sm:items-center sm:justify-between sm:gap-4">
-                <div>
-                  <p className="text-sm font-black text-white">Ready to build the golfer board?</p>
-                  <p className="mt-1 text-sm text-neutral-400">
-                    Create the pool now, then choose the golfers for this tournament.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleCreatePool}
-                  disabled={isSaving || loadingTournaments || loadingPoolrUser}
-                  className="rounded-[22px] bg-emerald-500 px-7 py-4 text-sm font-black uppercase tracking-[0.14em] text-black transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {isSaving ? "Creating..." : "Create Pool"}
-                </button>
-              </div>
             </div>
 
             <aside className="lg:sticky lg:top-6">
-              <GlassCard className="overflow-hidden">
+              <Card className="overflow-hidden">
                 <div className="border-b border-white/10 bg-white/[0.04] p-6">
-                  <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.25em] text-emerald-300">
-                        Pool Preview
+                      <p className="text-[10px] font-black uppercase tracking-[0.24em] text-emerald-300">
+                        Preview
                       </p>
                       <h2 className="mt-2 text-2xl font-black text-white">
                         {poolName.trim() || "Your Pool"}
                       </h2>
                     </div>
-                    <Badge tone="success">Live setup</Badge>
+                    <Badge tone={rulesReady ? "green" : "dark"}>{rulesReady ? "Ready" : "Draft"}</Badge>
                   </div>
                   <p className="mt-4 text-sm leading-6 text-neutral-400">
-                    This is the manager’s rule card before the pool moves to the golfer board.
+                    Review the setup, then create the pool and build the board.
                   </p>
                 </div>
 
                 <div className="space-y-3 p-6">
-                  <PreviewRow label="Format" value={displayFormat(draftFormat)} />
-                  <PreviewRow
-                    label="Tournament"
-                    value={selectedTournament?.name || "Select one"}
-                  />
+                  <PreviewRow label="Tournament" value={selectedTournament?.name || "Select one"} />
                   <PreviewRow label="Details" value={selectedTournamentMeta} />
+                  <PreviewRow label="Format" value={displayFormat(draftFormat)} />
                   <PreviewRow label="Roster" value={`${rosterSize} golfers`} />
                   <PreviewRow label="Counted" value={`Best ${playersCounted}`} />
                   <PreviewRow
-                    label={draftFormat === "tiered_draft" ? "Tier Rule" : "Salary Cap"}
+                    label={draftFormat === "salary_cap" ? "Cap" : "Rule"}
                     value={
-                      draftFormat === "tiered_draft"
-                        ? tierRule || "1 golfer from each tier"
-                        : formatCap(salaryCap)
+                      draftFormat === "salary_cap"
+                        ? formatCap(salaryCap)
+                        : tierRule || "1 golfer from each tier"
                     }
                   />
-                  <PreviewRow label="Max Entries" value={`${maxPlayers} entries`} />
-                  <PreviewRow
-                    label="Group Buy-In"
-                    value={allowFreePool ? "$0" : formatCurrency(entryFee)}
-                  />
-                  <PreviewRow
-                    label="Experience"
-                    value={
-                      showLiveLeaderboard
-                        ? "Live leaderboard on"
-                        : "Live leaderboard off"
-                    }
-                  />
-                  <PreviewRow
-                    label="Privacy"
-                    value={hideRostersUntilLock ? "Hidden until lock" : "Visible early"}
-                  />
-                  <PreviewRow
-                    label="Bonus"
-                    value={`${bonusCount} bonus${bonusCount === 1 ? "" : "es"} on`}
-                  />
+                  <PreviewRow label="Entries" value={`Up to ${maxPlayers}`} />
+                  <PreviewRow label="Buy-in" value={allowFreePool ? "$0" : formatCurrency(entryFee)} />
                 </div>
 
                 <div className="border-t border-white/10 p-6">
                   {createdCode ? (
-                    <div className="rounded-[24px] border border-emerald-300/20 bg-emerald-400/10 p-4">
+                    <div className="mb-4 rounded-[22px] border border-emerald-300/20 bg-emerald-300/10 p-4">
                       <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-200">
                         Invite Code
                       </p>
@@ -1432,22 +1071,13 @@ export default function CreatePoolPage() {
                         {copied ? "Copied" : "Copy invite"}
                       </button>
                     </div>
-                  ) : (
-                    <div className="rounded-[24px] border border-white/10 bg-black/20 p-4">
-                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-500">
-                        Next
-                      </p>
-                      <p className="mt-2 text-sm leading-6 text-neutral-400">
-                        Create the pool, build the golfer board, then invite the group.
-                      </p>
-                    </div>
-                  )}
+                  ) : null}
 
                   <button
                     type="button"
                     onClick={handleCreatePool}
                     disabled={isSaving || loadingTournaments || loadingPoolrUser}
-                    className="mt-4 hidden w-full rounded-[22px] bg-emerald-500 px-7 py-4 text-sm font-black uppercase tracking-[0.14em] text-black transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60 lg:block"
+                    className="w-full rounded-[22px] bg-emerald-400 px-7 py-4 text-sm font-black uppercase tracking-[0.14em] text-black transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {isSaving ? "Creating..." : "Create Pool"}
                   </button>
@@ -1461,18 +1091,18 @@ export default function CreatePoolPage() {
                     </p>
                   ) : null}
                 </div>
-              </GlassCard>
+              </Card>
             </aside>
-          </section>
+          </div>
         </div>
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#040816]/92 p-3 backdrop-blur-xl sm:hidden">
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#030712]/92 p-3 backdrop-blur-xl sm:hidden">
         <button
           type="button"
           onClick={handleCreatePool}
           disabled={isSaving || loadingTournaments || loadingPoolrUser}
-          className="w-full rounded-[20px] bg-emerald-500 px-7 py-4 text-sm font-black uppercase tracking-[0.14em] text-black transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
+          className="w-full rounded-[20px] bg-emerald-400 px-7 py-4 text-sm font-black uppercase tracking-[0.14em] text-black transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isSaving ? "Creating..." : "Create Pool"}
         </button>

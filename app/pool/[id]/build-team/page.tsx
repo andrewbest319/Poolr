@@ -19,6 +19,7 @@ type Tournament = {
   id: string;
   name: string | null;
   location: string | null;
+  course?: string | null;
   lock_time: string | null;
   status: string | null;
 };
@@ -27,10 +28,10 @@ type PoolrUser = {
   id: string;
   full_name: string;
   email: string;
-  phone: string;
-  has_used_free_pool_experience: boolean;
-  first_pool_id: string | null;
-  first_entry_id: string | null;
+  phone?: string | null;
+  has_used_free_pool_experience?: boolean | null;
+  first_pool_id?: string | null;
+  first_entry_id?: string | null;
 };
 
 type Entry = {
@@ -49,35 +50,46 @@ type Pick = {
   golfer_id: string;
 };
 
+type PlayerPrice = {
+  id: string;
+  tournament_id: string | null;
+  golfer_id: string | null;
+  player_name?: string | null;
+  name?: string | null;
+  salary?: number | string | null;
+  price?: number | string | null;
+  tier?: number | string | null;
+  datagolf_rank?: number | string | null;
+  rank?: number | string | null;
+  world_rank?: number | string | null;
+  win_odds?: string | number | null;
+  odds?: string | number | null;
+  american_odds?: string | number | null;
+  outright_odds?: string | number | null;
+  odds_to_win?: string | number | null;
+  dg_win_odds?: string | number | null;
+  top_5_odds?: string | number | null;
+  top_10_odds?: string | number | null;
+  country?: string | null;
+  [key: string]: unknown;
+};
+
 type Golfer = {
   id: string;
   name: string;
-  salary: number | null;
-  tier: number | null;
-  win_odds?: string | number | null;
-  top_5_odds?: string | number | null;
-  top_10_odds?: string | number | null;
-  country: string | null;
-  world_rank: number | null;
-  tournament_id: string | null;
-  source?: "scores" | "golfers";
-};
-
-type ScorePlayer = {
-  golfer_id: string | null;
-  player_name: string | null;
-  tournament_id: string | null;
-};
-
-type PlayerPrice = {
-  golfer_id: string;
-  tournament_id: string | null;
-  salary: number | null;
-  tier: number | null;
+  salary: number;
+  tier: number;
   win_odds: string | number | null;
   top_5_odds: string | number | null;
   top_10_odds: string | number | null;
+  country: string | null;
+  datagolf_rank: number | null;
+  world_rank: number | null;
+  tournament_id: string | null;
+  player_price_id: string;
 };
+
+type SortMode = "favorite" | "salary" | "name" | "tier" | "rank";
 
 function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
@@ -91,77 +103,114 @@ function money(value: number | null | undefined) {
   return `$${Number(value).toLocaleString()}`;
 }
 
-function formatOdds(value: string | number | null | undefined) {
-  if (value === null || value === undefined || value === "") return "Odds pending";
+function cleanNumber(value: unknown) {
+  if (value === null || value === undefined || value === "") return null;
 
-  const raw = String(value).trim();
+  const cleaned = String(value)
+    .trim()
+    .replace("+", "")
+    .replace(",", "")
+    .replace("$", "");
 
-  if (!raw || raw === "null" || raw === "undefined") return "Odds pending";
-  if (raw.startsWith("+") || raw.startsWith("-")) return raw;
+  const num = Number(cleaned);
 
-  const num = Number(raw);
-  if (Number.isNaN(num)) return raw;
-
-  return num > 0 ? `+${num}` : `${num}`;
+  return Number.isFinite(num) ? num : null;
 }
 
-
-function OddsBadge({
-  odds,
-  compact = false,
-}: {
-  odds: string | number | null | undefined;
-  compact?: boolean;
-}) {
-  const label = formatOdds(odds);
-  const hasOdds = label !== "Odds pending";
-
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] shadow-[0_0_24px_rgba(16,185,129,0.12)]",
-        hasOdds
-          ? "border-emerald-300/25 bg-emerald-300/10 text-emerald-200"
-          : "border-white/10 bg-white/[0.04] text-white/40",
-        compact && "px-2 py-0.5 text-[9px]"
-      )}
-      title={hasOdds ? `${label} odds to win` : "Tournament odds pending"}
-    >
-      <span
-        className={cn(
-          "h-1.5 w-1.5 rounded-full",
-          hasOdds ? "bg-emerald-300" : "bg-white/25"
-        )}
-      />
-      {hasOdds ? `${label} to win` : "Odds pending"}
-    </span>
-  );
-}
-
-function normalizeName(name: string | null | undefined) {
-  const raw = String(name ?? "").trim();
+function normalizeName(value: unknown) {
+  const raw = String(value ?? "").trim();
 
   if (!raw) return "";
 
   if (raw.includes(",")) {
     const [last, first] = raw.split(",").map((part) => part.trim());
-    return `${first}${last}`.toLowerCase().replace(/[^a-z0-9]/g, "");
+    return `${first} ${last}`.replace(/\s+/g, " ").trim();
   }
 
-  return raw.toLowerCase().replace(/[^a-z0-9]/g, "");
+  return raw.replace(/\s+/g, " ").trim();
 }
 
-function displayNameFromScore(name: string | null | undefined) {
-  const raw = String(name ?? "").trim();
+function searchSafe(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9 ]/g, "");
+}
 
-  if (!raw) return "Unknown Golfer";
-
-  if (raw.includes(",")) {
-    const [last, first] = raw.split(",").map((part) => part.trim());
-    return `${first} ${last}`;
+function formatOdds(value: string | number | null | undefined) {
+  if (value === null || value === undefined || value === "") {
+    return "Odds pending";
   }
 
-  return raw;
+  const raw = String(value).trim();
+
+  if (!raw || raw === "null" || raw === "undefined") return "Odds pending";
+  if (raw.toLowerCase() === "pending") return "Odds pending";
+
+  if (raw.startsWith("+") || raw.startsWith("-")) return raw;
+
+  const num = Number(raw);
+
+  if (!Number.isFinite(num)) return raw;
+
+  return num > 0 ? `+${num}` : `${num}`;
+}
+
+function getOddsRaw(row: PlayerPrice | Golfer) {
+  return (
+    row.win_odds ??
+    ("odds" in row ? row.odds : null) ??
+    ("american_odds" in row ? row.american_odds : null) ??
+    ("outright_odds" in row ? row.outright_odds : null) ??
+    ("odds_to_win" in row ? row.odds_to_win : null) ??
+    ("dg_win_odds" in row ? row.dg_win_odds : null) ??
+    null
+  );
+}
+
+function getOddsNumber(row: PlayerPrice | Golfer) {
+  return cleanNumber(getOddsRaw(row));
+}
+
+function getRankNumber(row: PlayerPrice | Golfer) {
+  return (
+    cleanNumber(row.datagolf_rank) ??
+    cleanNumber(row.world_rank) ??
+    ("rank" in row ? cleanNumber(row.rank) : null) ??
+    9999
+  );
+}
+
+function sortByFavorite(a: Golfer, b: Golfer) {
+  const aOdds = getOddsNumber(a);
+  const bOdds = getOddsNumber(b);
+
+  if (aOdds !== null && bOdds !== null) {
+    return aOdds - bOdds;
+  }
+
+  if (aOdds !== null) return -1;
+  if (bOdds !== null) return 1;
+
+  const aRank = getRankNumber(a);
+  const bRank = getRankNumber(b);
+
+  if (aRank !== bRank) return aRank - bRank;
+
+  if (a.salary !== b.salary) return b.salary - a.salary;
+
+  return a.name.localeCompare(b.name);
+}
+
+function defaultSalary(index: number) {
+  const starting = 11500;
+  const step = 125;
+
+  return Math.max(5500, starting - index * step);
+}
+
+function defaultTier(index: number, fieldSize: number) {
+  const tierCount = 6;
+  const tierSize = Math.max(1, Math.ceil(fieldSize / tierCount));
+
+  return Math.min(tierCount, Math.floor(index / tierSize) + 1);
 }
 
 function lockText(tournament: Tournament | null) {
@@ -201,18 +250,85 @@ function isTournamentLocked(tournament: Tournament | null) {
   );
 }
 
-function defaultSalary(index: number) {
-  const starting = 11500;
-  const step = 125;
-  return Math.max(5500, starting - index * step);
+function getPlayerName(row: PlayerPrice) {
+  return normalizeName(row.player_name || row.name || "Unknown Golfer");
 }
 
-function defaultTier(index: number) {
-  return Math.min(6, Math.floor(index / 12) + 1);
+function getPlayerSalary(row: PlayerPrice, index: number) {
+  return (
+    cleanNumber(row.salary) ??
+    cleanNumber(row.price) ??
+    defaultSalary(index)
+  );
 }
 
-function formatNameSearch(value: string) {
-  return value.toLowerCase().replace(/[^a-z0-9 ]/g, "");
+function getPlayerTier(row: PlayerPrice, index: number, fieldSize: number) {
+  return cleanNumber(row.tier) ?? defaultTier(index, fieldSize);
+}
+
+function buildGolferFromPrice(row: PlayerPrice, index: number, fieldSize: number): Golfer {
+  const rank = getRankNumber(row);
+  const odds = getOddsRaw(row);
+
+  return {
+    id: row.golfer_id || row.id,
+    player_price_id: row.id,
+    name: getPlayerName(row),
+    salary: getPlayerSalary(row, index),
+    tier: getPlayerTier(row, index, fieldSize),
+    win_odds: odds,
+    top_5_odds: row.top_5_odds ?? null,
+    top_10_odds: row.top_10_odds ?? null,
+    country: row.country ?? null,
+    datagolf_rank: rank === 9999 ? null : rank,
+    world_rank: cleanNumber(row.world_rank),
+    tournament_id: row.tournament_id,
+  };
+}
+
+function deDupePlayers(players: Golfer[]) {
+  const seen = new Set<string>();
+
+  return players.filter((player) => {
+    const key = `${player.id}-${searchSafe(player.name)}`;
+
+    if (seen.has(key)) return false;
+
+    seen.add(key);
+    return true;
+  });
+}
+
+function OddsBadge({
+  odds,
+  compact = false,
+}: {
+  odds: string | number | null | undefined;
+  compact?: boolean;
+}) {
+  const label = formatOdds(odds);
+  const hasOdds = label !== "Odds pending";
+
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em]",
+        hasOdds
+          ? "border-emerald-300/25 bg-emerald-300/10 text-emerald-200 shadow-[0_0_24px_rgba(16,185,129,0.14)]"
+          : "border-white/10 bg-white/[0.04] text-white/40",
+        compact && "px-2 py-0.5 text-[9px]"
+      )}
+      title={hasOdds ? `${label} odds to win` : "Odds are not available yet"}
+    >
+      <span
+        className={cn(
+          "h-1.5 w-1.5 rounded-full",
+          hasOdds ? "bg-emerald-300" : "bg-white/25"
+        )}
+      />
+      {hasOdds ? `${label} to win` : "Odds pending"}
+    </span>
+  );
 }
 
 function Stat({
@@ -227,8 +343,8 @@ function Stat({
   warning?: boolean;
 }) {
   return (
-    <div className="rounded-3xl border border-white/10 bg-black/25 p-5">
-      <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
+    <div className="rounded-[28px] border border-white/10 bg-black/25 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+      <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-500">
         {label}
       </p>
 
@@ -270,9 +386,7 @@ export default function BuildTeamPage() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [search, setSearch] = useState("");
-  const [sort, setSort] = useState<"salary" | "name" | "tier" | "rank">(
-    "salary"
-  );
+  const [sort, setSort] = useState<SortMode>("favorite");
 
   const returnTo = `/pool/${poolId}/build-team${
     entryIdFromUrl ? `?entryId=${encodeURIComponent(entryIdFromUrl)}` : ""
@@ -325,22 +439,11 @@ export default function BuildTeamPage() {
     setNotice("");
 
     try {
-      let { data: poolData, error: poolError } = await supabase
+      const { data: poolData, error: poolError } = await supabase
         .from("pools")
         .select("*")
         .eq("id", poolId)
         .maybeSingle();
-
-      if (!poolData) {
-        const fallback = await supabase
-          .from("pools")
-          .select("*")
-          .eq("tournament_id", poolId)
-          .maybeSingle();
-
-        poolData = fallback.data;
-        poolError = fallback.error;
-      }
 
       if (poolError) throw new Error(poolError.message);
 
@@ -353,20 +456,22 @@ export default function BuildTeamPage() {
       const loadedPool = poolData as Pool;
       setPool(loadedPool);
 
-      let loadedTournament: Tournament | null = null;
-
-      if (loadedPool.tournament_id) {
-        const { data: tournamentData, error: tournamentError } = await supabase
-          .from("tournaments")
-          .select("*")
-          .eq("id", loadedPool.tournament_id)
-          .maybeSingle();
-
-        if (tournamentError) throw new Error(tournamentError.message);
-
-        loadedTournament = (tournamentData as Tournament | null) ?? null;
-        setTournament(loadedTournament);
+      if (!loadedPool.tournament_id) {
+        throw new Error(
+          "This pool is missing a tournament_id. Create a new pool or connect this pool to the correct tournament in Supabase."
+        );
       }
+
+      const { data: tournamentData, error: tournamentError } = await supabase
+        .from("tournaments")
+        .select("*")
+        .eq("id", loadedPool.tournament_id)
+        .maybeSingle();
+
+      if (tournamentError) throw new Error(tournamentError.message);
+
+      const loadedTournament = (tournamentData as Tournament | null) ?? null;
+      setTournament(loadedTournament);
 
       let activeEntry: Entry | null = null;
 
@@ -417,6 +522,8 @@ export default function BuildTeamPage() {
         activeEntry = ((existingEntries ?? [])[0] as Entry | undefined) ?? null;
       }
 
+      let existingPickIds: string[] = [];
+
       if (activeEntry) {
         setEntry(activeEntry);
         setTeamName(activeEntry.team_name || "My Poolr Team");
@@ -432,10 +539,11 @@ export default function BuildTeamPage() {
 
         if (picksError) throw new Error(picksError.message);
 
-        setSelected(((existingPicks ?? []) as Pick[]).map((pick) => pick.golfer_id));
+        existingPickIds = ((existingPicks ?? []) as Pick[]).map(
+          (pick) => pick.golfer_id
+        );
       } else {
         setEntry(null);
-        setSelected([]);
         setTeamName(
           poolrUser?.full_name
             ? `${poolrUser.full_name.split(" ")[0]}'s Team`
@@ -443,145 +551,40 @@ export default function BuildTeamPage() {
         );
       }
 
-      const priceMap = new Map<string, PlayerPrice>();
+      const { data: priceRows, error: priceError } = await supabase
+        .from("player_prices")
+        .select("*")
+        .eq("tournament_id", loadedPool.tournament_id);
 
-      if (loadedPool.tournament_id) {
-        const { data: priceData } = await supabase
-          .from("player_prices")
-          .select("golfer_id, tournament_id, salary, tier, win_odds, top_5_odds, top_10_odds")
-          .eq("tournament_id", loadedPool.tournament_id);
+      if (priceError) throw new Error(priceError.message);
 
-        for (const price of (priceData ?? []) as PlayerPrice[]) {
-          if (price.golfer_id) priceMap.set(price.golfer_id, price);
-        }
+      if (!priceRows || priceRows.length === 0) {
+        throw new Error(
+          `No player_prices found for this tournament. Tournament ID: ${loadedPool.tournament_id}. This pool is connected to a tournament, but that tournament does not have its golfer field loaded yet.`
+        );
       }
 
-      const scoreGolfers: Golfer[] = [];
+      const rawGolfers = (priceRows as PlayerPrice[])
+        .filter((row) => Boolean(row.id && row.tournament_id))
+        .filter((row) => Boolean(row.player_name || row.name || row.golfer_id))
+        .map((row, index, array) => buildGolferFromPrice(row, index, array.length));
 
-      if (loadedPool.tournament_id) {
-        const { data: scorePlayers } = await supabase
-          .from("scores")
-          .select("golfer_id, player_name, tournament_id")
-          .eq("tournament_id", loadedPool.tournament_id);
+      const finalGolfers = deDupePlayers(rawGolfers).sort(sortByFavorite);
 
-        const seen = new Set<string>();
-
-        for (const row of (scorePlayers ?? []) as ScorePlayer[]) {
-          if (!row.golfer_id || !row.player_name) continue;
-
-          const key = row.golfer_id || normalizeName(row.player_name);
-          if (seen.has(key)) continue;
-
-          seen.add(key);
-
-          const price = priceMap.get(row.golfer_id);
-
-          scoreGolfers.push({
-            id: row.golfer_id,
-            name: displayNameFromScore(row.player_name),
-            salary: price?.salary ?? null,
-            tier: price?.tier ?? null,
-            win_odds: price?.win_odds ?? null,
-            top_5_odds: price?.top_5_odds ?? null,
-            top_10_odds: price?.top_10_odds ?? null,
-            country: null,
-            world_rank: null,
-            tournament_id: row.tournament_id,
-            source: "scores",
-          });
-        }
+      if (finalGolfers.length === 0) {
+        throw new Error(
+          `Player prices exist, but no valid golfers could be displayed for tournament_id ${loadedPool.tournament_id}. Check player_name and golfer_id in Supabase.`
+        );
       }
 
-      const { data: golferRows } = await supabase
-        .from("golfers")
-        .select("id, name, salary, tier, country, world_rank, tournament_id");
-
-      const allGolfers = (golferRows ?? []) as Golfer[];
-
-      const tournamentGolfers = allGolfers.filter((golfer) => {
-        if (!loadedPool.tournament_id) return true;
-        return !golfer.tournament_id || golfer.tournament_id === loadedPool.tournament_id;
-      });
-
-      // If this tournament does not have an imported field yet, fall back to the global golfer board
-      // so the Build Team page never opens empty.
-      const hasTournamentSpecificGolfers =
-        tournamentGolfers.length > 0 || scoreGolfers.length > 0;
-
-      const fallbackGolfers = hasTournamentSpecificGolfers
-        ? tournamentGolfers
-        : allGolfers;
-
-      const combined = new Map<string, Golfer>();
-
-      fallbackGolfers.forEach((golfer, index) => {
-        const price = priceMap.get(golfer.id);
-
-        combined.set(golfer.id, {
-          ...golfer,
-          salary: price?.salary ?? golfer.salary ?? defaultSalary(index),
-          tier: price?.tier ?? golfer.tier ?? defaultTier(index),
-          win_odds: price?.win_odds ?? golfer.win_odds ?? null,
-          top_5_odds: price?.top_5_odds ?? golfer.top_5_odds ?? null,
-          top_10_odds: price?.top_10_odds ?? golfer.top_10_odds ?? null,
-          source: "golfers",
-        });
-      });
-
-      scoreGolfers.forEach((golfer, index) => {
-        const existing = combined.get(golfer.id);
-        const price = priceMap.get(golfer.id);
-
-        combined.set(golfer.id, {
-          ...existing,
-          ...golfer,
-          salary:
-            price?.salary ??
-            golfer.salary ??
-            existing?.salary ??
-            defaultSalary(index),
-          tier: price?.tier ?? golfer.tier ?? existing?.tier ?? defaultTier(index),
-          win_odds: price?.win_odds ?? golfer.win_odds ?? existing?.win_odds ?? null,
-          top_5_odds: price?.top_5_odds ?? golfer.top_5_odds ?? existing?.top_5_odds ?? null,
-          top_10_odds: price?.top_10_odds ?? golfer.top_10_odds ?? existing?.top_10_odds ?? null,
-          country: existing?.country ?? golfer.country ?? null,
-          world_rank: existing?.world_rank ?? golfer.world_rank ?? null,
-        });
-      });
-
-      const sortedGolfers = Array.from(combined.values()).sort((a, b) => {
-        const salaryA = Number(a.salary ?? 0);
-        const salaryB = Number(b.salary ?? 0);
-
-        if (salaryB !== salaryA) return salaryB - salaryA;
-
-        const rankA = Number(a.world_rank ?? 9999);
-        const rankB = Number(b.world_rank ?? 9999);
-
-        if (rankA !== rankB) return rankA - rankB;
-
-        return String(a.name || "").localeCompare(String(b.name || ""));
-      });
-
-      const tierCount = 6;
-      const tierSize = Math.max(1, Math.ceil(sortedGolfers.length / tierCount));
-
-      const finalGolfers = sortedGolfers.map((golfer, index) => {
-        const importedTier = golfer.id ? priceMap.get(golfer.id)?.tier : null;
-        const autoTier = Math.min(tierCount, Math.floor(index / tierSize) + 1);
-
-        return {
-          ...golfer,
-          salary: golfer.salary ?? defaultSalary(index),
-          // Trust real tournament-specific imported tiers first.
-          // Otherwise, auto-tier the board after sorting so Tier 1 = best golfers.
-          tier: importedTier ?? autoTier,
-        };
-      });
+      const validGolferIds = new Set(finalGolfers.map((golfer) => golfer.id));
 
       setGolfers(finalGolfers);
+      setSelected(existingPickIds.filter((id) => validGolferIds.has(id)));
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to load team builder.");
+      setGolfers([]);
+      setSelected([]);
     } finally {
       setLoading(false);
     }
@@ -600,39 +603,37 @@ export default function BuildTeamPage() {
   const format = String(pool?.format ?? "salary_cap").toLowerCase();
   const isSalaryCap = !format.includes("tier");
 
-  const pricedGolfers = useMemo(() => {
-    return golfers.map((golfer, index) => ({
-      ...golfer,
-      poolrSalary: Number(golfer.salary ?? defaultSalary(index)),
-      poolrTier: Number(golfer.tier ?? defaultTier(index)),
-    }));
-  }, [golfers]);
-
   const selectedGolfers = useMemo(() => {
     const selectedSet = new Set(selected);
-    return pricedGolfers.filter((golfer) => selectedSet.has(golfer.id));
-  }, [pricedGolfers, selected]);
+    return golfers.filter((golfer) => selectedSet.has(golfer.id));
+  }, [golfers, selected]);
 
   const salaryUsed = selectedGolfers.reduce(
-    (sum, golfer) => sum + Number(golfer.poolrSalary ?? 0),
+    (sum, golfer) => sum + Number(golfer.salary ?? 0),
     0
   );
 
   const salaryLeft = salaryCap - salaryUsed;
 
   const filteredGolfers = useMemo(() => {
-    const term = formatNameSearch(search);
+    const term = searchSafe(search);
 
-    let list = pricedGolfers.filter((golfer) => {
-      const haystack = formatNameSearch(
-        `${golfer.name} ${golfer.country ?? ""} ${golfer.poolrTier ?? ""}`
+    let list = golfers.filter((golfer) => {
+      const haystack = searchSafe(
+        `${golfer.name} ${golfer.country ?? ""} ${golfer.tier ?? ""} ${
+          golfer.datagolf_rank ?? ""
+        } ${golfer.world_rank ?? ""} ${formatOdds(golfer.win_odds)}`
       );
 
       return haystack.includes(term);
     });
 
+    if (sort === "favorite") {
+      list = [...list].sort(sortByFavorite);
+    }
+
     if (sort === "salary") {
-      list = [...list].sort((a, b) => b.poolrSalary - a.poolrSalary);
+      list = [...list].sort((a, b) => b.salary - a.salary);
     }
 
     if (sort === "name") {
@@ -640,17 +641,15 @@ export default function BuildTeamPage() {
     }
 
     if (sort === "tier") {
-      list = [...list].sort((a, b) => a.poolrTier - b.poolrTier);
+      list = [...list].sort((a, b) => a.tier - b.tier);
     }
 
     if (sort === "rank") {
-      list = [...list].sort(
-        (a, b) => Number(a.world_rank ?? 9999) - Number(b.world_rank ?? 9999)
-      );
+      list = [...list].sort((a, b) => getRankNumber(a) - getRankNumber(b));
     }
 
     return list;
-  }, [pricedGolfers, search, sort]);
+  }, [golfers, search, sort]);
 
   const rosterComplete = selected.length === rosterSize;
   const overSalaryCap = isSalaryCap && salaryUsed > salaryCap;
@@ -827,9 +826,9 @@ export default function BuildTeamPage() {
 
   if (!accountReady) {
     return (
-      <main className="min-h-screen bg-[#040816] text-white">
+      <main className="min-h-screen bg-[#030712] text-white">
         <div className="mx-auto flex min-h-screen max-w-4xl items-center justify-center px-6">
-          <div className="rounded-[32px] border border-white/10 bg-white/[0.06] p-8 text-center shadow-2xl backdrop-blur-xl">
+          <div className="rounded-[34px] border border-white/10 bg-white/[0.06] p-8 text-center shadow-2xl backdrop-blur-xl">
             <p className="text-xs font-black uppercase tracking-[0.32em] text-emerald-300">
               Poolr Account
             </p>
@@ -845,15 +844,15 @@ export default function BuildTeamPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#040816] text-white">
+      <main className="min-h-screen bg-[#030712] text-white">
         <div className="mx-auto flex min-h-screen max-w-7xl items-center justify-center px-6">
-          <div className="rounded-[32px] border border-white/10 bg-white/[0.06] p-8 text-center shadow-2xl backdrop-blur-xl">
+          <div className="rounded-[34px] border border-white/10 bg-white/[0.06] p-8 text-center shadow-2xl backdrop-blur-xl">
             <p className="text-xs font-black uppercase tracking-[0.32em] text-emerald-300">
               Poolr Team Builder
             </p>
-            <h1 className="mt-3 text-3xl font-black">Loading team builder...</h1>
+            <h1 className="mt-3 text-3xl font-black">Loading exact tournament field...</h1>
             <p className="mt-2 text-sm text-slate-400">
-              Pulling pool rules, field, pricing, and your entry.
+              Pulling golfers from player_prices for this pool’s tournament.
             </p>
           </div>
         </div>
@@ -863,8 +862,8 @@ export default function BuildTeamPage() {
 
   if (!pool) {
     return (
-      <main className="min-h-screen bg-[#040816] p-8 text-white">
-        <div className="mx-auto max-w-3xl rounded-[32px] border border-red-400/20 bg-red-400/10 p-8">
+      <main className="min-h-screen bg-[#030712] p-8 text-white">
+        <div className="mx-auto max-w-3xl rounded-[34px] border border-red-400/20 bg-red-400/10 p-8">
           <h1 className="text-3xl font-black">Pool not found</h1>
           <p className="mt-3 text-red-100">
             {error || "This pool could not be loaded."}
@@ -882,15 +881,16 @@ export default function BuildTeamPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#040816] text-white">
+    <main className="min-h-screen bg-[#030712] text-white">
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute left-[-12%] top-[-12%] h-[520px] w-[520px] rounded-full bg-emerald-500/15 blur-3xl" />
-        <div className="absolute right-[-12%] top-[8%] h-[460px] w-[460px] rounded-full bg-cyan-500/10 blur-3xl" />
-        <div className="absolute bottom-[-15%] left-[30%] h-[500px] w-[500px] rounded-full bg-violet-500/10 blur-3xl" />
+        <div className="absolute left-[-14%] top-[-14%] h-[560px] w-[560px] rounded-full bg-emerald-500/16 blur-3xl" />
+        <div className="absolute right-[-14%] top-[8%] h-[500px] w-[500px] rounded-full bg-sky-500/10 blur-3xl" />
+        <div className="absolute bottom-[-18%] left-[28%] h-[560px] w-[560px] rounded-full bg-violet-500/10 blur-3xl" />
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.025)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.025)_1px,transparent_1px)] bg-[size:48px_48px]" />
       </div>
 
       <div className="relative mx-auto max-w-7xl px-4 py-8">
-        <section className="overflow-hidden rounded-[40px] border border-white/10 bg-white/[0.06] p-6 shadow-[0_35px_130px_rgba(0,0,0,0.48)] backdrop-blur-2xl">
+        <section className="overflow-hidden rounded-[42px] border border-white/10 bg-white/[0.06] p-6 shadow-[0_35px_140px_rgba(0,0,0,0.55)] backdrop-blur-2xl">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <div className="flex flex-wrap items-center gap-3">
@@ -914,7 +914,7 @@ export default function BuildTeamPage() {
                 </span>
 
                 <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-black text-slate-300">
-                  ACCOUNT LINKED
+                  EXACT FIELD
                 </span>
               </div>
 
@@ -924,7 +924,8 @@ export default function BuildTeamPage() {
 
               <p className="mt-3 text-sm leading-7 text-slate-400">
                 {tournament?.name ?? "Tournament"}{" "}
-                {tournament?.location ? `• ${tournament.location}` : ""} •{" "}
+                {tournament?.location ? `• ${tournament.location}` : ""}
+                {tournament?.course ? ` • ${tournament.course}` : ""} •{" "}
                 {lockText(tournament)}
               </p>
 
@@ -983,7 +984,7 @@ export default function BuildTeamPage() {
             />
           </div>
 
-          <div className="mt-6 rounded-3xl border border-white/10 bg-black/20 p-5">
+          <div className="mt-6 rounded-[28px] border border-white/10 bg-black/20 p-5">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
                 <p className="text-sm font-black text-white">Roster Rule</p>
@@ -994,7 +995,7 @@ export default function BuildTeamPage() {
               </div>
 
               <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-4 py-2 text-xs font-black text-emerald-200">
-                {selectedGolfers.length} selected
+                {golfers.length} tournament golfers loaded
               </span>
             </div>
           </div>
@@ -1014,7 +1015,7 @@ export default function BuildTeamPage() {
         )}
 
         <div className="mt-6 grid gap-6 xl:grid-cols-[410px_1fr]">
-          <aside className="h-fit rounded-[36px] border border-white/10 bg-[#07111f]/90 p-5 shadow-2xl backdrop-blur-2xl xl:sticky xl:top-6">
+          <aside className="h-fit rounded-[38px] border border-white/10 bg-[#07111f]/90 p-5 shadow-2xl backdrop-blur-2xl xl:sticky xl:top-6">
             <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-300">
               Your Team
             </p>
@@ -1058,7 +1059,7 @@ export default function BuildTeamPage() {
             <div className="mt-5 space-y-3">
               {selectedGolfers.length === 0 ? (
                 <p className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-sm leading-6 text-slate-400">
-                  Select golfers from the tournament field. Your roster will appear here.
+                  Select golfers from the exact tournament field. Your roster will appear here.
                 </p>
               ) : (
                 selectedGolfers.map((golfer, index) => (
@@ -1071,18 +1072,21 @@ export default function BuildTeamPage() {
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <div className="flex flex-wrap items-center gap-2">
-                          <p className="text-sm font-black text-white">{index + 1}. {golfer.name}</p>
+                          <p className="text-sm font-black text-white">
+                            {index + 1}. {golfer.name}
+                          </p>
                           <OddsBadge odds={golfer.win_odds} compact />
                         </div>
 
                         <p className="mt-1 text-xs text-slate-500">
-                          {golfer.country ?? "DataGolf"}
-                          {golfer.poolrTier ? ` • Tier ${golfer.poolrTier}` : ""}
+                          Tournament Field
+                          {golfer.datagolf_rank ? ` • DataGolf #${golfer.datagolf_rank}` : ""}
+                          {golfer.tier ? ` • Tier ${golfer.tier}` : ""}
                         </p>
                       </div>
 
                       <p className="text-sm font-black text-emerald-300">
-                        {money(golfer.poolrSalary)}
+                        {money(golfer.salary)}
                       </p>
                     </div>
                   </button>
@@ -1112,7 +1116,7 @@ export default function BuildTeamPage() {
             </button>
           </aside>
 
-          <section className="rounded-[36px] border border-white/10 bg-white/[0.05] p-5 shadow-2xl backdrop-blur-2xl">
+          <section className="rounded-[38px] border border-white/10 bg-white/[0.05] p-5 shadow-2xl backdrop-blur-2xl">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <input
                 value={search}
@@ -1123,20 +1127,23 @@ export default function BuildTeamPage() {
 
               <select
                 value={sort}
-                onChange={(event) => setSort(event.target.value as typeof sort)}
+                onChange={(event) => setSort(event.target.value as SortMode)}
                 className="rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-sm font-bold text-white outline-none focus:border-emerald-300/40"
               >
+                <option value="favorite" className="bg-[#07111f]">
+                  Sort by favorite to win
+                </option>
+                <option value="rank" className="bg-[#07111f]">
+                  Sort by DataGolf rank
+                </option>
                 <option value="salary" className="bg-[#07111f]">
                   Sort by Poolr salary
-                </option>
-                <option value="name" className="bg-[#07111f]">
-                  Sort by name
                 </option>
                 <option value="tier" className="bg-[#07111f]">
                   Sort by tier
                 </option>
-                <option value="rank" className="bg-[#07111f]">
-                  Sort by world rank
+                <option value="name" className="bg-[#07111f]">
+                  Sort by name
                 </option>
               </select>
             </div>
@@ -1146,7 +1153,7 @@ export default function BuildTeamPage() {
                 <div className="col-span-full rounded-3xl border border-white/10 bg-black/20 p-8 text-center">
                   <p className="text-xl font-black text-white">No golfers found.</p>
                   <p className="mt-2 text-sm text-slate-400">
-                    Check your scores, golfers, or player_prices data for this tournament.
+                    This page only shows golfers from player_prices for this pool’s exact tournament_id.
                   </p>
                 </div>
               ) : (
@@ -1157,14 +1164,10 @@ export default function BuildTeamPage() {
 
                   const wouldBeSalaryUsed = isSelected
                     ? salaryUsed
-                    : salaryUsed + golfer.poolrSalary;
+                    : salaryUsed + golfer.salary;
 
                   const wouldGoOver =
                     isSalaryCap && !isSelected && wouldBeSalaryUsed > salaryCap;
-
-                  const sourceLabel =
-                    golfer.country ??
-                    (golfer.source === "scores" ? "DataGolf" : "Field");
 
                   return (
                     <button
@@ -1188,9 +1191,9 @@ export default function BuildTeamPage() {
                           </div>
 
                           <p className="mt-1 text-xs text-slate-500">
-                            {sourceLabel}
-                            {golfer.world_rank ? ` • World #${golfer.world_rank}` : ""}
-                            {golfer.poolrTier ? ` • Tier ${golfer.poolrTier}` : ""}
+                            Tournament Field
+                            {golfer.datagolf_rank ? ` • DataGolf #${golfer.datagolf_rank}` : ""}
+                            {golfer.tier ? ` • Tier ${golfer.tier}` : ""}
                           </p>
                         </div>
 
@@ -1212,9 +1215,7 @@ export default function BuildTeamPage() {
                         </p>
 
                         <p className="text-xl font-black text-emerald-300">
-                          {isSalaryCap
-                            ? money(golfer.poolrSalary)
-                            : `Tier ${golfer.poolrTier}`}
+                          {isSalaryCap ? money(golfer.salary) : `Tier ${golfer.tier}`}
                         </p>
                       </div>
 
