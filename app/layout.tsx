@@ -1,6 +1,13 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Footer from "../components/Footer";
+import {
+  absoluteUrl,
+  homeDescription,
+  homeTitle,
+  siteName,
+  siteUrl,
+} from "../lib/seo";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -14,9 +21,30 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Poolr",
-  description:
-    "Premium golf pools, clean leaderboards, hidden picks, and tournament action made simple.",
+  metadataBase: new URL(siteUrl),
+  applicationName: siteName,
+  title: {
+    default: homeTitle,
+    template: `%s | ${siteName}`,
+  },
+  description: homeDescription,
+  openGraph: {
+    title: homeTitle,
+    description: homeDescription,
+    url: absoluteUrl("/"),
+    siteName,
+    type: "website",
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: homeTitle,
+    description: homeDescription,
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export default function RootLayout({

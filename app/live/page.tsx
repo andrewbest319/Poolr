@@ -1,4 +1,13 @@
+import type { Metadata } from "next";
 import PageWrapper from "../../components/PageWrapper";
+import { pageMetadata } from "../../lib/seo";
+
+export const metadata: Metadata = pageMetadata({
+  title: "Live Golf Pool Leaderboards | Poolr",
+  description:
+    "Poolr live leaderboards keep golf pool standings clean, mobile-friendly, and easy to follow while the tournament unfolds.",
+  path: "/live",
+});
 
 const poolStandings = [
   ["#1", "AJ", "-14", "+2 today"],

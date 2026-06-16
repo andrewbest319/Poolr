@@ -1,5 +1,14 @@
+import type { Metadata } from "next";
 import PageWrapper from "../../components/PageWrapper";
 import StripeCheckoutButton from "../../components/StripeCheckoutButton";
+import { pageMetadata } from "../../lib/seo";
+
+export const metadata: Metadata = pageMetadata({
+  title: "Pricing | Poolr Golf Pool App",
+  description:
+    "Poolr pricing is simple: first premium golf pool free, single paid pools for $9.99, and monthly or annual options for serious pool creators.",
+  path: "/pricing",
+});
 
 const plans = [
   {

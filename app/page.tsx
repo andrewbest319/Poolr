@@ -1,8 +1,31 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+import {
+  homeDescription,
+  homeTitle,
+  jsonLd,
+  organizationJsonLd,
+  pageMetadata,
+  softwareApplicationJsonLd,
+} from "../lib/seo";
+
+export const metadata: Metadata = pageMetadata({
+  title: homeTitle,
+  description: homeDescription,
+  path: "/",
+});
 
 export default function HomePage() {
   return (
     <main className="min-h-screen bg-neutral-950 text-white">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: jsonLd(organizationJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: jsonLd(softwareApplicationJsonLd) }}
+      />
       <section className="relative isolate overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.22),transparent_30%),radial-gradient(circle_at_top_right,rgba(59,130,246,0.14),transparent_28%),linear-gradient(to_bottom,rgba(255,255,255,0.03),transparent_35%)]" />
         <div className="absolute inset-x-0 top-0 h-px bg-white/10" />
@@ -15,35 +38,35 @@ export default function HomePage() {
               </div>
 
               <h1 className="mt-6 max-w-5xl text-5xl font-bold tracking-tight sm:text-6xl lg:text-7xl">
-                Make every tournament feel bigger.
+                The easiest way to run a golf pool with friends
               </h1>
 
               <p className="mt-6 max-w-2xl text-base leading-7 text-neutral-300 sm:text-lg">
-                Poolr lets you create high-end golf pools with custom rules, salary cap or tiered
-                draft formats, invite codes, live competition, and a cleaner experience than the
-                spreadsheets and group chats people are stuck using now.
+                Create a golf pool. Invite your group. Build teams. Track the leaderboard live.
+                Poolr gives PGA tournament pools custom rules, hidden picks, salary cap or tiered
+                formats, and a cleaner experience than spreadsheets and group chats.
               </p>
 
-              <div className="mt-8 flex flex-wrap gap-4">
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:gap-4">
                 <Link
                   href="/create-pool"
-                  className="rounded-2xl bg-emerald-500 px-6 py-3.5 text-sm font-semibold text-black transition hover:bg-emerald-400"
+                  className="inline-flex min-h-12 items-center justify-center rounded-2xl bg-emerald-500 px-6 py-3.5 text-sm font-semibold text-black transition hover:bg-emerald-400"
                 >
                   Create a Pool
                 </Link>
 
                 <Link
                   href="/join-pool"
-                  className="rounded-2xl border border-white/10 bg-white/5 px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-white/10"
+                  className="inline-flex min-h-12 items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-white/10"
                 >
                   Join with Code
                 </Link>
               </div>
 
               <div className="mt-10 grid max-w-3xl gap-4 sm:grid-cols-3">
+                <QuickStat value="First Pool Free" label="creator pays" />
                 <QuickStat value="Tiered Draft" label="or Salary Cap" />
-                <QuickStat value="Custom Rules" label="roster and scoring" />
-                <QuickStat value="Invite Code" label="fast private entry" />
+                <QuickStat value="Invite Code" label="friends join free" />
               </div>
             </div>
 
@@ -114,15 +137,15 @@ export default function HomePage() {
         <div className="grid gap-4 md:grid-cols-3">
           <FeatureCard
             title="Run it your way"
-            text="Set entry fee, roster size, counted golfers, scoring bonuses, visibility rules, and more."
+            text="Set roster size, counted golfers, scoring bonuses, visibility rules, and the format your group wants."
           />
           <FeatureCard
             title="Make it feel premium"
             text="Private invite codes, sharper design, cleaner structure, and a format people actually want to use."
           />
           <FeatureCard
-            title="More fun for everyone"
-            text="Built for serious competition, trash talk, strategy, and the energy that makes tournament weekends better."
+            title="Clear for the group"
+            text="The creator pays, everyone else joins free, and the first premium pool is free to try."
           />
         </div>
       </section>
@@ -181,7 +204,32 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-6 pb-24 pt-12 lg:px-8">
+      <section className="mx-auto max-w-7xl px-6 py-8 lg:px-8">
+        <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-6">
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-300">
+            Explore Poolr
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {[
+              ["/golf-pools", "Golf Pools"],
+              ["/pga-golf-pool", "PGA Golf Pool"],
+              ["/fantasy-golf-pool", "Fantasy Golf Pool"],
+              ["/salary-cap-golf-pool", "Salary Cap"],
+              ["/tiered-golf-pool", "Tiered Format"],
+            ].map(([href, label]) => (
+              <Link
+                key={href}
+                href={href}
+                className="rounded-full border border-white/10 bg-black/20 px-4 py-2 text-sm font-semibold text-neutral-300 transition hover:bg-white/10 hover:text-white"
+              >
+                {label}
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-7xl px-6 pb-24 pt-8 lg:px-8">
         <div className="rounded-[34px] border border-emerald-500/20 bg-emerald-500/10 p-8 text-center sm:p-12">
           <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-300">
             Start now

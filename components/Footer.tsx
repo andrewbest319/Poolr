@@ -37,6 +37,21 @@ export default function Footer() {
             <Link href="/join-pool" className="transition hover:text-white">
               Join Pool
             </Link>
+            <Link href="/golf-pools" className="transition hover:text-white">
+              Golf Pools
+            </Link>
+            <Link href="/pga-golf-pool" className="transition hover:text-white">
+              PGA Golf Pool
+            </Link>
+            <Link href="/fantasy-golf-pool" className="transition hover:text-white">
+              Fantasy Golf Pool
+            </Link>
+            <Link href="/salary-cap-golf-pool" className="transition hover:text-white">
+              Salary Cap
+            </Link>
+            <Link href="/tiered-golf-pool" className="transition hover:text-white">
+              Tiered Format
+            </Link>
             <Link href="/privacy" className="transition hover:text-white">
               Privacy Policy
             </Link>

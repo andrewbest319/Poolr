@@ -1,6 +1,7 @@
 export const metadata = {
   title: "Privacy Policy | Poolr",
   description: "Privacy Policy for Poolr.",
+  alternates: { canonical: "/privacy" },
 };
 
 export default function PrivacyPolicyPage() {

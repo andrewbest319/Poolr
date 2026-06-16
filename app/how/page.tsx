@@ -1,4 +1,13 @@
+import type { Metadata } from "next";
 import PageWrapper from "../../components/PageWrapper";
+import { pageMetadata } from "../../lib/seo";
+
+export const metadata: Metadata = pageMetadata({
+  title: "How Poolr Works | Create, Invite, Build, Track",
+  description:
+    "See how Poolr helps golf pool creators set rules, invite friends, build teams, and follow live tournament leaderboards.",
+  path: "/how",
+});
 
 const steps = [
   {

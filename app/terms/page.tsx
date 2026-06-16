@@ -1,6 +1,7 @@
 export const metadata = {
   title: "Terms and Conditions | Poolr",
   description: "Terms and Conditions for Poolr.",
+  alternates: { canonical: "/terms" },
 };
 
 export default function TermsPage() {
