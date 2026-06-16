@@ -854,108 +854,118 @@ export default function LeaderboardPage() {
                           </p>
                         </div>
                       ) : (
-                        <div className="max-w-full overflow-x-auto">
-                          <div className="min-w-[640px] sm:min-w-[720px]">
-                            <div className="grid grid-cols-[1.45fr_0.65fr_0.7fr_0.6fr_0.75fr] gap-2 bg-black/20 px-4 py-3 text-xs font-black uppercase tracking-[0.18em] text-slate-500 sm:gap-3 sm:px-5">
-                              <div>Golfer</div>
-                              <div>Salary</div>
-                              <div>Position</div>
-                              <div>Total</div>
-                              <div>Status</div>
-                            </div>
+                        <div className="max-w-full overflow-hidden">
+                          <div className="hidden grid-cols-[minmax(0,1.45fr)_0.65fr_0.7fr_0.6fr_0.75fr] gap-3 bg-black/20 px-5 py-3 text-xs font-black uppercase tracking-[0.18em] text-slate-500 sm:grid">
+                            <div>Golfer</div>
+                            <div>Salary</div>
+                            <div>Position</div>
+                            <div>Total</div>
+                            <div>Status</div>
+                          </div>
 
-                            <div className="divide-y divide-white/10">
-                              {row.players.map((player) => {
-                                const counted = row.counted.some(
-                                  (countedPlayer) =>
-                                    countedPlayer.pick.id === player.pick.id
-                                );
+                          <div className="divide-y divide-white/10">
+                            {row.players.map((player) => {
+                              const counted = row.counted.some(
+                                (countedPlayer) =>
+                                  countedPlayer.pick.id === player.pick.id
+                              );
 
-                                const displayName = playerDisplayName(
-                                  player.golfer,
-                                  player.liveScore
-                                );
+                              const displayName = playerDisplayName(
+                                player.golfer,
+                                player.liveScore
+                              );
 
-                                return (
+                              return (
+                                <div
+                                  key={player.pick.id}
+                                  className={cn(
+                                    "flex min-w-0 flex-col gap-3 px-4 py-4 transition sm:grid sm:grid-cols-[minmax(0,1.45fr)_0.65fr_0.7fr_0.6fr_0.75fr] sm:gap-3 sm:px-5",
+                                    counted
+                                      ? "bg-emerald-400/[0.04]"
+                                      : "bg-white/[0.02] opacity-70"
+                                  )}
+                                >
+                                  <div className="min-w-0">
+                                    <p className="break-words font-black text-white">
+                                      {displayName}
+
+                                      {player.isHot && (
+                                        <span className="ml-2 rounded-full bg-orange-400/15 px-2 py-0.5 text-xs font-black text-orange-200">
+                                          🔥 Hot
+                                        </span>
+                                      )}
+
+                                      {!player.isHot && player.isWarm && (
+                                        <span className="ml-2 rounded-full bg-yellow-400/10 px-2 py-0.5 text-xs font-black text-yellow-100">
+                                          Heating Up
+                                        </span>
+                                      )}
+                                    </p>
+
+                                    <p className="mt-1 text-xs text-slate-500">
+                                      {player.golfer?.country ?? "—"}
+                                      {player.golfer?.world_rank
+                                        ? ` • World #${player.golfer.world_rank}`
+                                        : ""}
+                                    </p>
+                                  </div>
+
+                                  <div className="flex items-center justify-between gap-3 rounded-2xl bg-black/20 px-3 py-2 text-sm font-bold text-slate-300 sm:block sm:rounded-none sm:bg-transparent sm:px-0 sm:py-0">
+                                    <span className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 sm:hidden">
+                                      Salary
+                                    </span>
+                                    <span>{money(player.golfer?.salary)}</span>
+                                  </div>
+
+                                  <div className="flex items-center justify-between gap-3 rounded-2xl bg-black/20 px-3 py-2 text-sm font-bold text-slate-300 sm:block sm:rounded-none sm:bg-transparent sm:px-0 sm:py-0">
+                                    <span className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 sm:hidden">
+                                      Position
+                                    </span>
+                                    <span>{player.liveScore?.position ?? "—"}</span>
+                                  </div>
+
                                   <div
-                                    key={player.pick.id}
                                     className={cn(
-                                      "grid grid-cols-[1.45fr_0.65fr_0.7fr_0.6fr_0.75fr] gap-2 px-4 py-4 transition sm:gap-3 sm:px-5",
-                                      counted
-                                        ? "bg-emerald-400/[0.04]"
-                                        : "bg-white/[0.02] opacity-70"
+                                      "flex items-center justify-between gap-3 rounded-2xl bg-black/20 px-3 py-2 text-sm font-black sm:block sm:rounded-none sm:bg-transparent sm:px-0 sm:py-0",
+                                      player.hasScore && player.total <= 0
+                                        ? "text-emerald-300"
+                                        : "text-red-300"
                                     )}
                                   >
-                                    <div>
-                                      <p className="font-black text-white">
-                                        {displayName}
+                                    <span className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 sm:hidden">
+                                      Total
+                                    </span>
+                                    <span>{player.hasScore ? scoreText(player.total) : "—"}</span>
+                                  </div>
 
-                                        {player.isHot && (
-                                          <span className="ml-2 rounded-full bg-orange-400/15 px-2 py-0.5 text-xs font-black text-orange-200">
-                                            🔥 Hot
-                                          </span>
-                                        )}
-
-                                        {!player.isHot && player.isWarm && (
-                                          <span className="ml-2 rounded-full bg-yellow-400/10 px-2 py-0.5 text-xs font-black text-yellow-100">
-                                            Heating Up
-                                          </span>
-                                        )}
-                                      </p>
-
-                                      <p className="mt-1 text-xs text-slate-500">
-                                        {player.golfer?.country ?? "—"}
-                                        {player.golfer?.world_rank
-                                          ? ` • World #${player.golfer.world_rank}`
-                                          : ""}
-                                      </p>
-                                    </div>
-
-                                    <div className="text-sm font-bold text-slate-300">
-                                      {money(player.golfer?.salary)}
-                                    </div>
-
-                                    <div className="text-sm font-bold text-slate-300">
-                                      {player.liveScore?.position ?? "—"}
-                                    </div>
-
-                                    <div
+                                  <div className="flex items-center justify-between gap-3 rounded-2xl bg-black/20 px-3 py-2 sm:block sm:rounded-none sm:bg-transparent sm:px-0 sm:py-0">
+                                    <span className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 sm:hidden">
+                                      Status
+                                    </span>
+                                    <span
                                       className={cn(
-                                        "text-sm font-black",
-                                        player.hasScore && player.total <= 0
-                                          ? "text-emerald-300"
-                                          : "text-red-300"
+                                        "rounded-full px-3 py-1 text-xs font-black",
+                                        player.isCut
+                                          ? "bg-red-400/15 text-red-200"
+                                          : counted && player.hasScore
+                                            ? "bg-emerald-400/15 text-emerald-200"
+                                            : counted && !player.hasScore
+                                              ? "bg-yellow-400/10 text-yellow-100"
+                                              : "bg-white/10 text-slate-400"
                                       )}
                                     >
-                                      {player.hasScore ? scoreText(player.total) : "—"}
-                                    </div>
-
-                                    <div>
-                                      <span
-                                        className={cn(
-                                          "rounded-full px-3 py-1 text-xs font-black",
-                                          player.isCut
-                                            ? "bg-red-400/15 text-red-200"
-                                            : counted && player.hasScore
-                                              ? "bg-emerald-400/15 text-emerald-200"
-                                              : counted && !player.hasScore
-                                                ? "bg-yellow-400/10 text-yellow-100"
-                                                : "bg-white/10 text-slate-400"
-                                        )}
-                                      >
-                                        {player.isCut
-                                          ? "Cut"
-                                          : counted
-                                            ? player.hasScore
-                                              ? "Counted"
-                                              : "No Score"
-                                            : "Dropped"}
-                                      </span>
-                                    </div>
+                                      {player.isCut
+                                        ? "Cut"
+                                        : counted
+                                          ? player.hasScore
+                                            ? "Counted"
+                                            : "No Score"
+                                          : "Dropped"}
+                                    </span>
                                   </div>
-                                );
-                              })}
-                            </div>
+                                </div>
+                              );
+                            })}
                           </div>
                         </div>
                       )}
@@ -1020,7 +1030,7 @@ export default function LeaderboardPage() {
             </div>
 
             <div className="mt-5 overflow-hidden rounded-3xl border border-white/10">
-              <div className="grid grid-cols-[0.45fr_1.45fr_0.65fr_0.55fr] gap-3 bg-black/25 px-4 py-3 text-xs font-black uppercase tracking-[0.18em] text-slate-500">
+              <div className="grid grid-cols-[0.45fr_minmax(0,1.45fr)_0.65fr_0.55fr] gap-3 bg-black/25 px-4 py-3 text-xs font-black uppercase tracking-[0.18em] text-slate-500">
                 <div>Pos</div>
                 <div>Player</div>
                 <div>Total</div>
@@ -1043,14 +1053,14 @@ export default function LeaderboardPage() {
                     return (
                       <div
                         key={score.id}
-                        className="grid grid-cols-[0.45fr_1.45fr_0.65fr_0.55fr] gap-3 px-4 py-3"
+                        className="grid grid-cols-[0.45fr_minmax(0,1.45fr)_0.65fr_0.55fr] gap-3 px-4 py-3"
                       >
                         <div className="text-sm font-black text-white">
                           {score.position ?? "—"}
                         </div>
 
-                        <div>
-                          <p className="text-sm font-bold text-white">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-bold text-white">
                             {displayNameFromScore(score.player_name)}
                           </p>
 
