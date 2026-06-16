@@ -551,14 +551,14 @@ export default function LeaderboardPage() {
   }
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[#030712] text-white">
-      <div className="pointer-events-none fixed inset-0 overflow-hidden">
+    <main className="relative isolate min-h-screen w-full max-w-full overflow-x-hidden bg-[#030712] text-white">
+      <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
         <div className="absolute left-[-14%] top-[-12%] h-[520px] w-[520px] rounded-full bg-emerald-500/15 blur-3xl" />
         <div className="absolute right-[-10%] top-[6%] h-[460px] w-[460px] rounded-full bg-cyan-500/10 blur-3xl" />
         <div className="absolute bottom-[-16%] left-[26%] h-[500px] w-[500px] rounded-full bg-violet-500/10 blur-3xl" />
       </div>
 
-      <div className="relative mx-auto max-w-7xl px-3 py-6 sm:px-4 sm:py-8">
+      <div className="relative mx-auto w-full max-w-7xl px-3 py-6 sm:px-4 sm:py-8">
         <section className="overflow-hidden rounded-[42px] border border-white/10 bg-white/[0.06] p-4 shadow-[0_35px_130px_rgba(0,0,0,0.52)] backdrop-blur-2xl sm:p-6">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div className="min-w-0">
@@ -587,7 +587,7 @@ export default function LeaderboardPage() {
                 </span>
               </div>
 
-              <h1 className="mt-4 max-w-full break-words text-5xl font-black tracking-tight sm:text-6xl">
+              <h1 className="mt-4 max-w-full break-words text-4xl font-black tracking-tight sm:text-6xl">
                 {pool.name || "Poolr Pool"}
               </h1>
 
@@ -602,11 +602,11 @@ export default function LeaderboardPage() {
               </p>
             </div>
 
-            <div className="flex flex-wrap gap-3">
+            <div className="flex w-full flex-wrap gap-3 sm:w-auto">
               <button
                 onClick={() => loadLeaderboard(true)}
                 disabled={refreshing}
-                className="rounded-2xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-black text-white transition hover:bg-white/10 disabled:opacity-50"
+                className="flex flex-1 justify-center rounded-2xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-black text-white transition hover:bg-white/10 disabled:opacity-50 sm:flex-none"
               >
                 {refreshing ? "Refreshing..." : "Refresh"}
               </button>
@@ -614,7 +614,7 @@ export default function LeaderboardPage() {
               <Link
                 href={`/pool/${pool.id}/build-team`}
                 className={cn(
-                  "rounded-2xl px-5 py-3 text-sm font-black transition",
+                  "flex flex-1 justify-center rounded-2xl px-5 py-3 text-sm font-black transition sm:flex-none",
                   isLocked
                     ? "cursor-not-allowed bg-slate-500 text-slate-200"
                     : "bg-emerald-400 text-black hover:bg-emerald-300"
@@ -628,7 +628,7 @@ export default function LeaderboardPage() {
 
               <Link
                 href={`/pool/${pool.id}`}
-                className="rounded-2xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-bold text-white transition hover:bg-white/10"
+                className="flex flex-1 justify-center rounded-2xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-bold text-white transition hover:bg-white/10 sm:flex-none"
               >
                 Pool Home
               </Link>
