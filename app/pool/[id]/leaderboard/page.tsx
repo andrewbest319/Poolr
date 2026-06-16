@@ -554,8 +554,8 @@ export default function LeaderboardPage() {
     <main className="relative isolate min-h-screen w-full max-w-full overflow-x-hidden bg-[#030712] text-white">
       <div className="pointer-events-none absolute inset-0 -z-10 max-w-full overflow-hidden bg-[linear-gradient(135deg,rgba(16,185,129,0.12),transparent_32%,rgba(56,189,248,0.08)_68%,rgba(139,92,246,0.06))]" />
 
-      <div className="relative mx-auto w-full max-w-7xl min-w-0 overflow-x-hidden px-3 py-6 sm:px-4 sm:py-8">
-        <section className="w-full max-w-full overflow-hidden rounded-[42px] border border-white/10 bg-white/[0.06] p-4 shadow-[0_35px_130px_rgba(0,0,0,0.52)] backdrop-blur-2xl sm:p-6">
+      <div className="relative mx-auto box-border w-full max-w-[100vw] min-w-0 overflow-x-hidden px-4 py-5 sm:max-w-7xl sm:px-6 sm:py-8 lg:px-8">
+        <section className="box-border w-full max-w-full overflow-hidden rounded-[30px] border border-white/10 bg-white/[0.06] p-4 shadow-[0_24px_80px_rgba(0,0,0,0.42)] backdrop-blur-2xl sm:rounded-[42px] sm:p-6 sm:shadow-[0_35px_130px_rgba(0,0,0,0.52)]">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-3">
@@ -658,10 +658,10 @@ export default function LeaderboardPage() {
           </div>
         )}
 
-        <div className="mt-6 grid min-w-0 gap-5 sm:gap-6 xl:grid-cols-[minmax(0,1fr)_390px]">
-          <section className="min-w-0 space-y-5">
+        <div className="mt-5 grid w-full min-w-0 max-w-full gap-5 sm:mt-6 sm:gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,390px)]">
+          <section className="w-full min-w-0 max-w-full space-y-5">
             {!picksVisible && displayRows.length > 0 ? (
-              <div className="rounded-[28px] border border-emerald-400/20 bg-emerald-400/[0.08] p-5 text-center shadow-2xl backdrop-blur-xl">
+              <div className="box-border w-full max-w-[calc(100vw-32px)] overflow-hidden rounded-[24px] border border-emerald-400/20 bg-emerald-400/[0.08] p-4 text-center shadow-[0_18px_55px_rgba(0,0,0,0.28)] backdrop-blur-xl sm:max-w-full sm:rounded-[28px] sm:p-5 sm:shadow-2xl">
                 <p className="text-lg font-black text-emerald-100">
                   Picks hidden until lock
                 </p>
@@ -672,7 +672,7 @@ export default function LeaderboardPage() {
             ) : null}
 
             {displayRows.length === 0 ? (
-              <div className="rounded-[34px] border border-white/10 bg-white/[0.05] p-8 text-center shadow-2xl backdrop-blur-xl">
+              <div className="box-border w-full max-w-[calc(100vw-32px)] overflow-hidden rounded-[26px] border border-white/10 bg-white/[0.05] p-6 text-center shadow-[0_18px_55px_rgba(0,0,0,0.32)] backdrop-blur-xl sm:max-w-full sm:rounded-[34px] sm:p-8 sm:shadow-2xl">
                 <p className="text-2xl font-black">No teams submitted yet.</p>
                 <p className="mt-2 text-sm text-slate-400">
                   Once teams are submitted, DataGolf-powered live rankings will appear here.
@@ -699,7 +699,7 @@ export default function LeaderboardPage() {
                   <article
                     key={row.entry.id}
                     className={cn(
-                      "w-full min-w-0 max-w-full overflow-hidden rounded-[30px] border bg-white/[0.055] shadow-[0_28px_95px_rgba(0,0,0,0.38)] backdrop-blur-2xl sm:rounded-[36px]",
+                      "box-border w-full min-w-0 max-w-[calc(100vw-32px)] overflow-hidden rounded-[26px] border bg-white/[0.055] shadow-[0_18px_55px_rgba(0,0,0,0.34)] backdrop-blur-2xl sm:max-w-full sm:rounded-[36px] sm:shadow-[0_28px_95px_rgba(0,0,0,0.38)]",
                       picksVisible && row.rank === 1
                         ? "border-emerald-400/45"
                         : "border-white/10"
@@ -707,7 +707,7 @@ export default function LeaderboardPage() {
                   >
                     <div
                       className={cn(
-                        "flex w-full min-w-0 max-w-full flex-col gap-4 p-4 sm:gap-5 sm:p-6 lg:flex-row lg:items-center lg:justify-between",
+                        "box-border flex w-full min-w-0 max-w-full flex-col gap-4 p-4 sm:gap-5 sm:p-6 lg:flex-row lg:items-center lg:justify-between",
                         picksVisible && row.rank === 1 && "bg-emerald-400/[0.075]"
                       )}
                     >
@@ -972,7 +972,7 @@ export default function LeaderboardPage() {
             )}
           </section>
 
-          <aside className="h-fit w-full min-w-0 max-w-full overflow-hidden rounded-[36px] border border-white/10 bg-[#07111f]/90 p-4 shadow-[0_28px_95px_rgba(0,0,0,0.42)] backdrop-blur-2xl sm:p-5 xl:sticky xl:top-6">
+          <aside className="box-border h-fit w-full min-w-0 max-w-[calc(100vw-32px)] overflow-hidden rounded-[28px] border border-white/10 bg-[#07111f]/90 p-4 shadow-[0_18px_55px_rgba(0,0,0,0.36)] backdrop-blur-2xl sm:max-w-full sm:rounded-[36px] sm:p-5 sm:shadow-[0_28px_95px_rgba(0,0,0,0.42)] xl:sticky xl:top-6">
             <div className="flex min-w-0 items-center justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-xs font-black uppercase tracking-[0.26em] text-emerald-300">
@@ -990,7 +990,7 @@ export default function LeaderboardPage() {
               Live scoring from your DataGolf sync powers every Poolr team ranking.
             </p>
 
-            <div className="mt-5 rounded-3xl border border-emerald-400/20 bg-emerald-400/[0.06] p-4">
+            <div className="mt-5 box-border w-full max-w-full overflow-hidden rounded-3xl border border-emerald-400/20 bg-emerald-400/[0.06] p-4">
               <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-300">
                 Payouts
               </p>
@@ -1025,7 +1025,7 @@ export default function LeaderboardPage() {
               </div>
             </div>
 
-            <div className="mt-5 max-w-full overflow-hidden rounded-3xl border border-white/10">
+            <div className="mt-5 box-border w-full max-w-full overflow-hidden rounded-3xl border border-white/10">
               <div className="grid grid-cols-[2.5rem_minmax(0,1fr)_3rem_2.5rem] gap-2 bg-black/25 px-3 py-3 text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 sm:grid-cols-[0.45fr_minmax(0,1.45fr)_0.65fr_0.55fr] sm:gap-3 sm:px-4 sm:text-xs sm:tracking-[0.18em]">
                 <div>Pos</div>
                 <div>Player</div>
@@ -1084,7 +1084,7 @@ export default function LeaderboardPage() {
               </div>
             </div>
 
-            <div className="mt-5 rounded-3xl border border-white/10 bg-white/[0.04] p-4">
+            <div className="mt-5 box-border w-full max-w-full overflow-hidden rounded-3xl border border-white/10 bg-white/[0.04] p-4">
               <div className="flex min-w-0 justify-between gap-3 text-sm">
                 <span className="text-slate-400">Last page refresh</span>
                 <span className="min-w-0 text-right font-bold text-white">
