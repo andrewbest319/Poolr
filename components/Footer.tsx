@@ -2,10 +2,10 @@ import Link from "next/link";
 
 export default function Footer() {
   return (
-    <footer className="w-full max-w-full overflow-hidden border-t border-white/10 bg-[#030712]">
-      <div className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-8 lg:px-10">
-        <div className="grid gap-8 lg:grid-cols-[1fr_auto] lg:items-start">
-          <div>
+    <footer className="w-full max-w-full overflow-x-hidden border-t border-white/10 bg-[#030712]">
+      <div className="mx-auto w-full max-w-7xl min-w-0 px-4 py-10 sm:px-8 lg:px-10">
+        <div className="grid min-w-0 gap-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+          <div className="min-w-0">
             <Link href="/" className="text-lg font-black tracking-tight text-white">
               Poolr
             </Link>
@@ -18,7 +18,7 @@ export default function Footer() {
             </p>
           </div>
 
-          <nav className="grid gap-3 text-sm text-zinc-400 sm:grid-cols-3 lg:text-right">
+          <nav className="grid min-w-0 gap-3 text-sm text-zinc-400 sm:grid-cols-3 lg:text-right">
             <Link href="/" className="transition hover:text-white">
               Home
             </Link>
@@ -62,7 +62,7 @@ export default function Footer() {
         </div>
 
         <div className="mt-8 border-t border-white/10 pt-6">
-          <div className="grid gap-4 text-xs text-zinc-600 lg:grid-cols-[1fr_auto]">
+          <div className="grid min-w-0 gap-4 text-xs text-zinc-600 lg:grid-cols-[minmax(0,1fr)_auto]">
             <p>© 2026 Poolr. All rights reserved.</p>
             <p>
               Poolr is a golf pool software platform. Poolr does not process wagers,

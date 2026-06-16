@@ -552,14 +552,10 @@ export default function LeaderboardPage() {
 
   return (
     <main className="relative isolate min-h-screen w-full max-w-full overflow-x-hidden bg-[#030712] text-white">
-      <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
-        <div className="absolute left-[-14%] top-[-12%] h-[520px] w-[520px] rounded-full bg-emerald-500/15 blur-3xl" />
-        <div className="absolute right-[-10%] top-[6%] h-[460px] w-[460px] rounded-full bg-cyan-500/10 blur-3xl" />
-        <div className="absolute bottom-[-16%] left-[26%] h-[500px] w-[500px] rounded-full bg-violet-500/10 blur-3xl" />
-      </div>
+      <div className="pointer-events-none absolute inset-0 -z-10 max-w-full overflow-hidden bg-[linear-gradient(135deg,rgba(16,185,129,0.12),transparent_32%,rgba(56,189,248,0.08)_68%,rgba(139,92,246,0.06))]" />
 
-      <div className="relative mx-auto w-full max-w-7xl px-3 py-6 sm:px-4 sm:py-8">
-        <section className="overflow-hidden rounded-[42px] border border-white/10 bg-white/[0.06] p-4 shadow-[0_35px_130px_rgba(0,0,0,0.52)] backdrop-blur-2xl sm:p-6">
+      <div className="relative mx-auto w-full max-w-7xl min-w-0 overflow-x-hidden px-3 py-6 sm:px-4 sm:py-8">
+        <section className="w-full max-w-full overflow-hidden rounded-[42px] border border-white/10 bg-white/[0.06] p-4 shadow-[0_35px_130px_rgba(0,0,0,0.52)] backdrop-blur-2xl sm:p-6">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-3">
@@ -703,7 +699,7 @@ export default function LeaderboardPage() {
                   <article
                     key={row.entry.id}
                     className={cn(
-                      "max-w-full overflow-hidden rounded-[30px] border bg-white/[0.055] shadow-[0_28px_95px_rgba(0,0,0,0.38)] backdrop-blur-2xl sm:rounded-[36px]",
+                      "w-full min-w-0 max-w-full overflow-hidden rounded-[30px] border bg-white/[0.055] shadow-[0_28px_95px_rgba(0,0,0,0.38)] backdrop-blur-2xl sm:rounded-[36px]",
                       picksVisible && row.rank === 1
                         ? "border-emerald-400/45"
                         : "border-white/10"
@@ -711,11 +707,11 @@ export default function LeaderboardPage() {
                   >
                     <div
                       className={cn(
-                        "flex min-w-0 flex-col gap-4 p-4 sm:gap-5 sm:p-6 lg:flex-row lg:items-center lg:justify-between",
+                        "flex w-full min-w-0 max-w-full flex-col gap-4 p-4 sm:gap-5 sm:p-6 lg:flex-row lg:items-center lg:justify-between",
                         picksVisible && row.rank === 1 && "bg-emerald-400/[0.075]"
                       )}
                     >
-                      <div className="flex min-w-0 items-start gap-3 sm:gap-4">
+                      <div className="flex w-full min-w-0 items-start gap-3 sm:gap-4 lg:w-auto">
                         <div
                           className={cn(
                             "flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border text-xl font-black sm:h-16 sm:w-16 sm:rounded-3xl sm:text-2xl",
@@ -800,7 +796,7 @@ export default function LeaderboardPage() {
                         </div>
                       </div>
 
-                      <div className="grid w-full min-w-0 grid-cols-3 gap-2 sm:gap-3 lg:w-auto lg:min-w-[360px]">
+                      <div className="grid w-full min-w-0 grid-cols-1 gap-2 sm:grid-cols-3 sm:gap-3 lg:w-auto lg:min-w-[360px]">
                         <MiniCard
                           label="Total"
                           value={
@@ -976,16 +972,16 @@ export default function LeaderboardPage() {
             )}
           </section>
 
-          <aside className="h-fit min-w-0 max-w-full rounded-[36px] border border-white/10 bg-[#07111f]/90 p-5 shadow-[0_28px_95px_rgba(0,0,0,0.42)] backdrop-blur-2xl xl:sticky xl:top-6">
-            <div className="flex items-center justify-between">
-              <div>
+          <aside className="h-fit w-full min-w-0 max-w-full overflow-hidden rounded-[36px] border border-white/10 bg-[#07111f]/90 p-4 shadow-[0_28px_95px_rgba(0,0,0,0.42)] backdrop-blur-2xl sm:p-5 xl:sticky xl:top-6">
+            <div className="flex min-w-0 items-center justify-between gap-3">
+              <div className="min-w-0">
                 <p className="text-xs font-black uppercase tracking-[0.26em] text-emerald-300">
                   DataGolf Feed
                 </p>
                 <h2 className="mt-2 text-2xl font-black">Live Board</h2>
               </div>
 
-              <span className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-black text-slate-300">
+              <span className="shrink-0 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-black text-slate-300">
                 Top 25
               </span>
             </div>
@@ -1010,9 +1006,9 @@ export default function LeaderboardPage() {
                   payouts.map((payout) => (
                     <div
                       key={payout.id}
-                      className="flex items-center justify-between rounded-2xl border border-white/10 bg-black/20 px-4 py-3"
+                      className="flex min-w-0 items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/20 px-4 py-3"
                     >
-                      <span className="text-sm font-bold text-white">
+                      <span className="min-w-0 truncate text-sm font-bold text-white">
                         {payout.label || placeLabel(Number(payout.place))}
                       </span>
 
@@ -1029,8 +1025,8 @@ export default function LeaderboardPage() {
               </div>
             </div>
 
-            <div className="mt-5 overflow-hidden rounded-3xl border border-white/10">
-              <div className="grid grid-cols-[0.45fr_minmax(0,1.45fr)_0.65fr_0.55fr] gap-3 bg-black/25 px-4 py-3 text-xs font-black uppercase tracking-[0.18em] text-slate-500">
+            <div className="mt-5 max-w-full overflow-hidden rounded-3xl border border-white/10">
+              <div className="grid grid-cols-[2.5rem_minmax(0,1fr)_3rem_2.5rem] gap-2 bg-black/25 px-3 py-3 text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 sm:grid-cols-[0.45fr_minmax(0,1.45fr)_0.65fr_0.55fr] sm:gap-3 sm:px-4 sm:text-xs sm:tracking-[0.18em]">
                 <div>Pos</div>
                 <div>Player</div>
                 <div>Total</div>
@@ -1053,7 +1049,7 @@ export default function LeaderboardPage() {
                     return (
                       <div
                         key={score.id}
-                        className="grid grid-cols-[0.45fr_minmax(0,1.45fr)_0.65fr_0.55fr] gap-3 px-4 py-3"
+                        className="grid min-w-0 grid-cols-[2.5rem_minmax(0,1fr)_3rem_2.5rem] gap-2 px-3 py-3 sm:grid-cols-[0.45fr_minmax(0,1.45fr)_0.65fr_0.55fr] sm:gap-3 sm:px-4"
                       >
                         <div className="text-sm font-black text-white">
                           {score.position ?? "—"}
@@ -1089,14 +1085,14 @@ export default function LeaderboardPage() {
             </div>
 
             <div className="mt-5 rounded-3xl border border-white/10 bg-white/[0.04] p-4">
-              <div className="flex justify-between text-sm">
+              <div className="flex min-w-0 justify-between gap-3 text-sm">
                 <span className="text-slate-400">Last page refresh</span>
-                <span className="font-bold text-white">
+                <span className="min-w-0 text-right font-bold text-white">
                   {lastLoaded ? dateText(lastLoaded.toISOString()) : "—"}
                 </span>
               </div>
 
-              <div className="mt-2 flex justify-between text-sm">
+              <div className="mt-2 flex min-w-0 justify-between gap-3 text-sm">
                 <span className="text-slate-400">Pool status</span>
                 <span
                   className={cn(
@@ -1108,16 +1104,16 @@ export default function LeaderboardPage() {
                 </span>
               </div>
 
-              <div className="mt-2 flex justify-between text-sm">
+              <div className="mt-2 flex min-w-0 justify-between gap-3 text-sm">
                 <span className="text-slate-400">Format</span>
-                <span className="font-bold text-white">
+                <span className="min-w-0 truncate text-right font-bold text-white">
                   {pool.format || "Poolr"}
                 </span>
               </div>
 
-              <div className="mt-2 flex justify-between text-sm">
+              <div className="mt-2 flex min-w-0 justify-between gap-3 text-sm">
                 <span className="text-slate-400">Roster</span>
-                <span className="font-bold text-white">
+                <span className="min-w-0 text-right font-bold text-white">
                   {rosterSize} golfers / best {countedPlayers}
                 </span>
               </div>

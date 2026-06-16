@@ -6,12 +6,8 @@ type PageWrapperProps = {
 
 export default function PageWrapper({ children }: PageWrapperProps) {
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#050816] text-white">
-      <div className="absolute inset-0 -z-10">
-        <div className="absolute left-1/2 top-24 h-72 w-72 -translate-x-1/2 rounded-full bg-emerald-400/10 blur-3xl" />
-        <div className="absolute right-20 top-40 h-80 w-80 rounded-full bg-cyan-400/10 blur-3xl" />
-        <div className="absolute left-20 bottom-20 h-80 w-80 rounded-full bg-white/5 blur-3xl" />
-      </div>
+    <main className="relative min-h-screen w-full max-w-full overflow-x-hidden bg-[#050816] text-white">
+      <div className="absolute inset-0 -z-10 max-w-full overflow-hidden bg-[linear-gradient(135deg,rgba(16,185,129,0.10),transparent_34%,rgba(56,189,248,0.07)_68%,rgba(255,255,255,0.04))]" />
 
       <Navbar />
       {children}
