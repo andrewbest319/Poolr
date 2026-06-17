@@ -184,6 +184,16 @@ function generateInviteCode(poolName: string) {
   return `${base || "POOLR"}${Math.floor(100 + Math.random() * 900)}`;
 }
 
+function cleanInviteCode(value: string | null | undefined) {
+  return String(value ?? "").trim().toUpperCase();
+}
+
+function joinPoolPath(inviteCode: string) {
+  const code = cleanInviteCode(inviteCode);
+
+  return code ? `/join-pool?code=${encodeURIComponent(code)}` : "/join-pool";
+}
+
 function entryPaymentStatus(entry: Entry) {
   const raw = String(entry.payment_status ?? "").toLowerCase();
 
@@ -726,13 +736,11 @@ export default function ManagePoolPage() {
     });
   }, [rosterSize]);
 
+  const normalizedInviteCode = cleanInviteCode(inviteCode);
+  const joinPath = joinPoolPath(normalizedInviteCode);
   const inviteLink =
-    typeof window !== "undefined" && pool
-      ? `${window.location.origin}/join-pool?${
-          inviteCode
-            ? `code=${encodeURIComponent(inviteCode)}`
-            : `poolId=${encodeURIComponent(pool.id)}`
-        }`
+    typeof window !== "undefined" && pool && normalizedInviteCode
+      ? `${window.location.origin}${joinPath}`
       : "";
 
   const contactCsv = useMemo(() => {
@@ -1194,11 +1202,7 @@ if (!isCreator) {
                 </ActionButton>
 
                 <Link
-                  href={`/join-pool?${
-                    inviteCode
-                      ? `code=${encodeURIComponent(inviteCode)}`
-                      : `poolId=${pool.id}`
-                  }`}
+                  href={joinPath}
                   className="inline-flex items-center justify-center rounded-2xl bg-white/5 px-4 py-2.5 text-sm font-black text-white ring-1 ring-white/10 transition hover:bg-white/10"
                 >
                   Test Join Page
@@ -1575,11 +1579,7 @@ if (!isCreator) {
                     </ActionButton>
 
                     <Link
-                      href={`/join-pool?${
-                        inviteCode
-                          ? `code=${encodeURIComponent(inviteCode)}`
-                          : `poolId=${pool.id}`
-                      }`}
+                      href={joinPath}
                       className="inline-flex items-center justify-center rounded-2xl bg-white/5 px-4 py-2.5 text-sm font-black text-white ring-1 ring-white/10 transition hover:bg-white/10"
                     >
                       Test Join Page

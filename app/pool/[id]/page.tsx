@@ -68,6 +68,10 @@ function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
 
+function cleanInviteCode(value: string | null | undefined) {
+  return String(value ?? "").trim().toUpperCase();
+}
+
 function money(value: number | null | undefined) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) {
     return "$0";
@@ -377,16 +381,16 @@ export default function PoolLobbyPage() {
   const status = poolStatus(tournament);
   const locked = isPoolLocked(tournament);
 
-  const inviteCode = String(pool?.invite_code ?? "").trim();
+  const inviteCode = cleanInviteCode(pool?.invite_code);
 
-  const joinPath = pool
-    ? inviteCode
-      ? `/join-pool?code=${encodeURIComponent(inviteCode)}`
-      : `/join-pool?poolId=${encodeURIComponent(pool.id)}`
+  const joinPath = inviteCode
+    ? `/join-pool?code=${encodeURIComponent(inviteCode)}`
     : "/join-pool";
 
   const inviteLink =
-    typeof window !== "undefined" && pool ? `${window.location.origin}${joinPath}` : "";
+    typeof window !== "undefined" && pool && inviteCode
+      ? `${window.location.origin}${joinPath}`
+      : "";
 
   const currentUserEntry = useMemo(() => {
     if (!poolrUserId) return null;
@@ -637,7 +641,7 @@ export default function PoolLobbyPage() {
                 <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-center">
                   <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Code</p>
                   <p className="mt-1 font-black tracking-[0.18em] text-emerald-300">
-                    {inviteCode || "POOL ID"}
+                    {inviteCode || "No code"}
                   </p>
                 </div>
               </div>
@@ -695,7 +699,9 @@ export default function PoolLobbyPage() {
                 </Link>
               </div>
 
-              <p className="mt-4 break-all text-xs text-slate-500">{inviteLink}</p>
+              <p className="mt-4 break-all text-xs text-slate-500">
+                {inviteLink || "Invite code unavailable."}
+              </p>
             </div>
           </div>
         </section>

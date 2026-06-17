@@ -102,6 +102,8 @@ function JoinPoolPageInner() {
   const maxPlayers = Number(pool?.max_players ?? 0);
   const spotsRemaining =
     maxPlayers > 0 ? Math.max(maxPlayers - spotsTaken, 0) : null;
+  const codeWasAddedFromLink =
+    Boolean(codeFromUrl) && cleanCode(manualCode) === codeFromUrl;
 
   const existingEntryForUser = useMemo(() => {
     if (!poolrUserId) return null;
@@ -167,6 +169,12 @@ function JoinPoolPageInner() {
 
     requireAccount();
   }, [router, returnTo]);
+
+  useEffect(() => {
+    if (!codeFromUrl) return;
+
+    setManualCode(codeFromUrl);
+  }, [codeFromUrl]);
 
   async function loadPool({
     inviteCode,
@@ -440,6 +448,12 @@ function JoinPoolPageInner() {
                   Find Pool
                 </button>
               </div>
+
+              {codeWasAddedFromLink ? (
+                <p className="mt-3 text-xs font-bold text-emerald-200">
+                  Invite code added from your link.
+                </p>
+              ) : null}
             </div>
 
             {error && (
