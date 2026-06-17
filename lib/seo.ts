@@ -8,6 +8,15 @@ export const siteUrl = (
 export const homeTitle = "Poolr | Golf Pool App for PGA Tournament Pools";
 export const homeDescription =
   "Create and run premium golf pools for PGA tournaments with custom rules, hidden picks, live leaderboards, salary cap formats, and free invites for friends.";
+export const poolrIconPath = "/poolr-icon.png";
+export const poolrOgImagePath = "/poolr-og.png";
+export const appleTouchIconPath = "/apple-touch-icon.png";
+export const poolrOgImage = {
+  url: poolrOgImagePath,
+  width: 1200,
+  height: 630,
+  alt: "Poolr golf pool app",
+};
 
 export type FAQ = {
   question: string;
@@ -68,6 +77,7 @@ export function pageMetadata({
       description,
       url,
       siteName,
+      images: [poolrOgImage],
       type: "website",
       locale: "en_US",
     },
@@ -75,6 +85,7 @@ export function pageMetadata({
       card: "summary_large_image",
       title,
       description,
+      images: [poolrOgImagePath],
     },
     robots: {
       index: true,

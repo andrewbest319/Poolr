@@ -2,9 +2,12 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Footer from "../components/Footer";
 import {
-  absoluteUrl,
+  appleTouchIconPath,
   homeDescription,
   homeTitle,
+  poolrIconPath,
+  poolrOgImage,
+  poolrOgImagePath,
   siteName,
   siteUrl,
 } from "../lib/seo";
@@ -31,8 +34,9 @@ export const metadata: Metadata = {
   openGraph: {
     title: homeTitle,
     description: homeDescription,
-    url: absoluteUrl("/"),
+    url: siteUrl,
     siteName,
+    images: [poolrOgImage],
     type: "website",
     locale: "en_US",
   },
@@ -40,6 +44,12 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: homeTitle,
     description: homeDescription,
+    images: [poolrOgImagePath],
+  },
+  icons: {
+    icon: poolrIconPath,
+    shortcut: poolrIconPath,
+    apple: appleTouchIconPath,
   },
   robots: {
     index: true,
