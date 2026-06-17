@@ -26,7 +26,8 @@ type Tournament = {
 
 type Entry = {
   id: string;
-  user_id: string | null;
+  user_id?: string | null;
+  poolr_user_id?: string | null;
   pool_id: string;
   submitted: boolean | null;
   team_name?: string | null;
@@ -186,6 +187,7 @@ export default function LeaderboardPage() {
   const [error, setError] = useState("");
   const [lastLoaded, setLastLoaded] = useState<Date | null>(null);
   const [previousRanks, setPreviousRanks] = useState<Record<string, number>>({});
+  const [poolrUserId, setPoolrUserId] = useState("");
 
   const isLocked = Boolean(
     String(tournament?.status ?? "").toLowerCase() === "live" ||
@@ -203,6 +205,12 @@ export default function LeaderboardPage() {
     } catch {
       setPreviousRanks({});
     }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    setPoolrUserId(localStorage.getItem("poolr_user_id") ?? "");
   }, []);
 
   async function loadLeaderboard(showRefresh = false) {
@@ -471,7 +479,7 @@ export default function LeaderboardPage() {
   }, [entries, picks, golfers, uniqueScores, countedPlayers, previousRanks]);
 
   useEffect(() => {
-    if (leaderboard.length === 0) return;
+    if (!isLocked || leaderboard.length === 0) return;
 
     const nextRanks: Record<string, number> = {};
 
@@ -480,7 +488,7 @@ export default function LeaderboardPage() {
     });
 
     localStorage.setItem("poolr_previous_ranks", JSON.stringify(nextRanks));
-  }, [leaderboard]);
+  }, [leaderboard, isLocked]);
 
   const latestUpdate = useMemo(() => {
     const dates = uniqueScores
@@ -514,6 +522,11 @@ export default function LeaderboardPage() {
           String(b.entry.team_name ?? "")
         );
       });
+  const isCurrentUserEntry = (entry: Entry) =>
+    Boolean(
+      poolrUserId &&
+        (entry.poolr_user_id === poolrUserId || entry.user_id === poolrUserId)
+    );
 
   if (loading) {
     return (
@@ -666,7 +679,7 @@ export default function LeaderboardPage() {
                   Picks hidden until lock
                 </p>
                 <p className="mt-2 text-sm leading-6 text-slate-300">
-                  Team totals, best picks, behind values, golfer names, and live scoring details reveal when the pool locks.
+                  Your submitted roster is visible only to you. Other team totals, best picks, behind values, golfer names, and live scoring details reveal when the pool locks.
                 </p>
               </div>
             ) : null}
@@ -694,6 +707,7 @@ export default function LeaderboardPage() {
                 const winnings = payout
                   ? Math.round((totalPot * Number(payout.percentage)) / 100)
                   : 0;
+                const canViewTeam = picksVisible || isCurrentUserEntry(row.entry);
 
                 return (
                   <article
@@ -774,7 +788,7 @@ export default function LeaderboardPage() {
                               </span>
                             )}
 
-                            {picksVisible ? (
+                            {canViewTeam ? (
                               <ScoringStatusBadge
                                 isLocked={isLocked}
                                 liveCount={row.liveCount}
@@ -785,11 +799,17 @@ export default function LeaderboardPage() {
                                 PICKS HIDDEN
                               </span>
                             )}
+
+                            {!picksVisible && isCurrentUserEntry(row.entry) ? (
+                              <span className="w-fit whitespace-nowrap rounded-full border border-cyan-300/20 bg-cyan-300/10 px-2.5 py-1 text-[10px] font-black leading-none text-cyan-100 sm:px-3 sm:text-xs">
+                                YOUR TEAM
+                              </span>
+                            ) : null}
                           </div>
 
                           <p className="mt-2 text-xs leading-5 text-slate-400 sm:mt-1 sm:text-sm">
                             {row.entry.submitted ? "Submitted" : "Draft"} •{" "}
-                            {picksVisible
+                            {canViewTeam
                               ? `${row.players.length}/${rosterSize} golfers • Best ${countedPlayers} count`
                               : "Team details reveal at lock"}
                           </p>
@@ -800,19 +820,19 @@ export default function LeaderboardPage() {
                         <MiniCard
                           label="Total"
                           value={
-                            !picksVisible
+                            !canViewTeam
                               ? "Hidden"
                               : row.teamTotal === 999
                               ? "—"
                               : scoreText(row.teamTotal)
                           }
-                          good={picksVisible ? row.teamTotal <= 0 : undefined}
+                          good={canViewTeam ? row.teamTotal <= 0 : undefined}
                         />
 
                         <MiniCard
                           label="Best Pick"
                           value={
-                            !picksVisible
+                            !canViewTeam
                               ? "Reveals at lock"
                               : row.bestPlayer
                               ? `${playerDisplayName(
@@ -840,13 +860,13 @@ export default function LeaderboardPage() {
                     </div>
 
                     <div className="border-t border-white/10">
-                      {!isLocked ? (
+                      {!canViewTeam ? (
                         <div className="p-6 text-center sm:p-8">
                           <p className="text-lg font-black text-white">
                             Picks hidden until lock 🔒
                           </p>
                           <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-slate-400">
-                            Teams are submitted, but golfers reveal when the tournament goes live.
+                            This team is submitted, but its golfers reveal when the tournament goes live.
                           </p>
                         </div>
                       ) : (

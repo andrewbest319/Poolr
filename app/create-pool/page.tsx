@@ -62,6 +62,7 @@ type CreatedPool = {
 };
 
 const CREATE_POOL_PATH = "/create-pool";
+const DEFAULT_PAID_ENTRY_FEE = "25";
 const ROSTER_OPTIONS = [4, 6, 8, 10] as const;
 const MAX_PLAYER_OPTIONS = [8, 10, 12, 16, 20, 24, 32, 40, 50] as const;
 const SALARY_CAP_OPTIONS = [50000, 55000, 60000, 65000, 70000, 75000] as const;
@@ -190,6 +191,22 @@ function formatCurrency(value: string | number) {
     currency: "USD",
     maximumFractionDigits: 0,
   }).format(numberValue);
+}
+
+function parseEntryFeeInput(value: string) {
+  const trimmed = value.trim();
+
+  if (trimmed === "") {
+    return { amount: 0, error: "" };
+  }
+
+  const amount = Number(trimmed);
+
+  if (!Number.isFinite(amount) || amount < 0) {
+    return { amount: 0, error: "Group buy-in must be $0 or higher." };
+  }
+
+  return { amount, error: "" };
 }
 
 function formatCap(value: string) {
@@ -708,10 +725,10 @@ export default function CreatePoolPage() {
     if (!poolName.trim()) return "Enter a pool name.";
     if (!selectedTournamentId) return "Select a tournament.";
 
-    const parsedEntryFee = Number.parseFloat(entryFee || "0");
+    const parsedEntryFee = parseEntryFeeInput(entryFee);
 
-    if (!allowFreePool && (!Number.isFinite(parsedEntryFee) || parsedEntryFee < 0)) {
-      return "Group buy-in must be $0 or higher.";
+    if (parsedEntryFee.error) {
+      return parsedEntryFee.error;
     }
 
     if (playersCounted < getMinCount(rosterSize)) {
@@ -801,7 +818,7 @@ export default function CreatePoolPage() {
     );
   }
 
-  async function saveOptionalFeatureSettings(poolId: string) {
+  async function saveOptionalFeatureSettings(poolId: string, groupEntryFee: number) {
     const optionalPayload = {
       setup_preset: "clean_default",
       premium_enabled: true,
@@ -812,7 +829,7 @@ export default function CreatePoolPage() {
       bonus_top_5_enabled: true,
       bonus_top_10_enabled: true,
       hidden_teams_before_lock: true,
-      payment_mode: allowFreePool ? "free" : "pay-later",
+      payment_mode: groupEntryFee <= 0 ? "free" : "pay-later",
     };
 
     const { error } = await supabase
@@ -889,7 +906,16 @@ export default function CreatePoolPage() {
 
     try {
       const inviteCode = await createUniqueInviteCode();
-      const groupEntryFee = allowFreePool ? 0 : Number.parseFloat(entryFee || "0");
+      const parsedEntryFee = parseEntryFeeInput(entryFee);
+      const groupEntryFee = allowFreePool ? 0 : parsedEntryFee.amount;
+      const normalizedEntryFee = Number.isFinite(groupEntryFee) ? groupEntryFee : 0;
+      const poolIsFree = normalizedEntryFee <= 0;
+
+      if (poolIsFree) {
+        setEntryFee("0");
+        setAllowFreePool(true);
+      }
+
       const purchaseType = usingFreeFirstPool
         ? "free_first_pool"
         : userHasProAccess
@@ -905,7 +931,7 @@ export default function CreatePoolPage() {
       const payload = {
         name: poolName.trim(),
         format: draftFormat,
-        entry_fee: Number.isFinite(groupEntryFee) ? groupEntryFee : 0,
+        entry_fee: normalizedEntryFee,
         roster_size: rosterSize,
         counted_players: playersCounted,
         salary_cap: draftFormat === "salary_cap" ? Number.parseInt(salaryCap, 10) : null,
@@ -930,7 +956,7 @@ export default function CreatePoolPage() {
       };
 
       const createdPool = await insertPoolWithFallback(payload);
-      await saveOptionalFeatureSettings(createdPool.id);
+      await saveOptionalFeatureSettings(createdPool.id, normalizedEntryFee);
       await finalizeCreatorEntitlementAfterPoolCreate(createdPool.id);
 
       const finalInviteCode = createdPool.invite_code || inviteCode;
@@ -956,6 +982,29 @@ export default function CreatePoolPage() {
     } finally {
       setIsSaving(false);
     }
+  }
+
+  function handleEntryFeeBlur() {
+    const trimmedEntryFee = entryFee.trim();
+
+    if (trimmedEntryFee === "") {
+      setEntryFee("0");
+      setAllowFreePool(true);
+      return;
+    }
+
+    const parsedEntryFee = parseEntryFeeInput(trimmedEntryFee);
+
+    if (parsedEntryFee.error) return;
+
+    if (parsedEntryFee.amount <= 0) {
+      setEntryFee("0");
+      setAllowFreePool(true);
+      return;
+    }
+
+    setEntryFee(String(parsedEntryFee.amount));
+    setAllowFreePool(false);
   }
 
   return (
@@ -1184,10 +1233,8 @@ export default function CreatePoolPage() {
                           min="0"
                           step="1"
                           value={allowFreePool ? "0" : entryFee}
-                          onChange={(event) => {
-                            setEntryFee(event.target.value);
-                            setAllowFreePool(Number.parseFloat(event.target.value || "0") <= 0);
-                          }}
+                          onChange={(event) => setEntryFee(event.target.value)}
+                          onBlur={handleEntryFeeBlur}
                           disabled={allowFreePool}
                           placeholder="0"
                         />
@@ -1200,7 +1247,9 @@ export default function CreatePoolPage() {
                         setAllowFreePool((current) => {
                           const next = !current;
                           if (next) setEntryFee("0");
-                          if (!next && Number.parseFloat(entryFee || "0") <= 0) setEntryFee("25");
+                          if (!next && parseEntryFeeInput(entryFee).amount <= 0) {
+                            setEntryFee(DEFAULT_PAID_ENTRY_FEE);
+                          }
                           return next;
                         });
                       }}
