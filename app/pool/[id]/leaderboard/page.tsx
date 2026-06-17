@@ -37,7 +37,16 @@ type Entry = {
 type Pick = {
   id: string;
   entry_id: string;
-  golfer_id: string;
+  golfer_id: string | null;
+  player_id?: string | null;
+  datagolf_id?: string | null;
+  dg_id?: string | null;
+  name?: string | null;
+  golfer_name?: string | null;
+  player_name?: string | null;
+  salary?: number | string | null;
+  poolr_salary?: number | string | null;
+  price?: number | string | null;
 };
 
 type Golfer = {
@@ -61,6 +70,21 @@ type Score = {
   thru: string | null;
   status: string | null;
   updated_at: string | null;
+};
+
+type PlayerPrice = {
+  id: string;
+  tournament_id: string | null;
+  golfer_id: string | null;
+  player_name?: string | null;
+  name?: string | null;
+  salary?: number | string | null;
+  price?: number | string | null;
+  tier?: number | string | null;
+  country?: string | null;
+  world_rank?: number | string | null;
+  datagolf_rank?: number | string | null;
+  [key: string]: unknown;
 };
 
 type Payout = {
@@ -91,7 +115,7 @@ function normalizeName(name: string | null | undefined) {
 function displayNameFromScore(name: string | null | undefined) {
   const raw = String(name ?? "").trim();
 
-  if (!raw) return "Unknown Golfer";
+  if (!raw) return "Golfer unavailable";
 
   if (raw.includes(",")) {
     const [last, first] = raw.split(",").map((part) => part.trim());
@@ -99,6 +123,53 @@ function displayNameFromScore(name: string | null | undefined) {
   }
 
   return raw;
+}
+
+function pickGolferId(pick: Pick) {
+  return (
+    String(
+      pick.golfer_id ??
+        pick.player_id ??
+        pick.datagolf_id ??
+        pick.dg_id ??
+        ""
+    ).trim() || null
+  );
+}
+
+function pickStoredName(pick: Pick) {
+  return (
+    String(pick.golfer_name ?? pick.player_name ?? pick.name ?? "").trim() ||
+    null
+  );
+}
+
+function numericValue(value: number | string | null | undefined) {
+  if (value === null || value === undefined || value === "") return null;
+
+  const numeric = Number(String(value).replace("+", "").replace(",", "").replace("$", ""));
+
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
+function pickStoredSalary(pick: Pick) {
+  return (
+    numericValue(pick.poolr_salary) ??
+    numericValue(pick.salary) ??
+    numericValue(pick.price)
+  );
+}
+
+function playerPriceName(price: PlayerPrice | null | undefined) {
+  return String(price?.player_name ?? price?.name ?? "").trim() || null;
+}
+
+function playerPriceSalary(price: PlayerPrice | null | undefined) {
+  return numericValue(price?.salary) ?? numericValue(price?.price);
+}
+
+function playerPriceWorldRank(price: PlayerPrice | null | undefined) {
+  return numericValue(price?.world_rank) ?? numericValue(price?.datagolf_rank);
 }
 
 function money(value: number | null | undefined) {
@@ -167,8 +238,20 @@ function placeLabel(place: number) {
   return `${place}th Place`;
 }
 
-function playerDisplayName(golfer: Golfer | null, score: Score | null) {
-  return golfer?.name || displayNameFromScore(score?.player_name);
+function playerDisplayName(
+  golfer: Golfer | null,
+  score: Score | null,
+  price?: PlayerPrice | null,
+  pick?: Pick | null
+) {
+  return (
+    golfer?.name ||
+    displayNameFromScore(
+      score?.player_name ??
+        playerPriceName(price) ??
+        (pick ? pickStoredName(pick) : null)
+    )
+  );
 }
 
 export default function LeaderboardPage() {
@@ -180,6 +263,7 @@ export default function LeaderboardPage() {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [picks, setPicks] = useState<Pick[]>([]);
   const [golfers, setGolfers] = useState<Golfer[]>([]);
+  const [playerPrices, setPlayerPrices] = useState<PlayerPrice[]>([]);
   const [scores, setScores] = useState<Score[]>([]);
   const [payouts, setPayouts] = useState<Payout[]>([]);
   const [loading, setLoading] = useState(true);
@@ -290,7 +374,11 @@ export default function LeaderboardPage() {
       const loadedPicks = (picksData ?? []) as Pick[];
       setPicks(loadedPicks);
 
-      const golferIds = [...new Set(loadedPicks.map((pick) => pick.golfer_id))];
+      const golferIds = [
+        ...new Set(
+          loadedPicks.map((pick) => pickGolferId(pick)).filter(Boolean)
+        ),
+      ] as string[];
 
       const { data: golfersData } = await supabase
         .from("golfers")
@@ -301,6 +389,22 @@ export default function LeaderboardPage() {
         );
 
       setGolfers((golfersData ?? []) as Golfer[]);
+
+      if (loadedPool.tournament_id) {
+        const { data: pricesData, error: pricesError } = await supabase
+          .from("player_prices")
+          .select("*")
+          .eq("tournament_id", loadedPool.tournament_id);
+
+        if (pricesError) {
+          console.warn("Could not load leaderboard player prices:", pricesError.message);
+          setPlayerPrices([]);
+        } else {
+          setPlayerPrices((pricesData ?? []) as PlayerPrice[]);
+        }
+      } else {
+        setPlayerPrices([]);
+      }
 
       const scoreTournamentIds = [
         loadedPool.tournament_id,
@@ -391,6 +495,26 @@ export default function LeaderboardPage() {
       golfers.map((golfer) => [golfer.id, golfer])
     );
 
+    const priceById = new Map<string, PlayerPrice>();
+    const priceByGolferId = new Map<string, PlayerPrice>();
+    const priceByName = new Map<string, PlayerPrice>();
+
+    for (const price of playerPrices) {
+      if (price.id) {
+        priceById.set(price.id, price);
+      }
+
+      if (price.golfer_id) {
+        priceByGolferId.set(price.golfer_id, price);
+      }
+
+      const name = playerPriceName(price);
+
+      if (name) {
+        priceByName.set(normalizeName(name), price);
+      }
+    }
+
     const scoreByGolferId = new Map<string, Score>();
     const scoreByName = new Map<string, Score>();
 
@@ -410,12 +534,62 @@ export default function LeaderboardPage() {
 
         const players = entryPicks
           .map((pick) => {
-            const golfer = golferMap.get(pick.golfer_id) ?? null;
+            const pickId = pickGolferId(pick);
+            const storedName = pickStoredName(pick);
+            const initialPrice =
+              (pickId ? priceById.get(pickId) : undefined) ??
+              (pickId ? priceByGolferId.get(pickId) : undefined) ??
+              (storedName ? priceByName.get(normalizeName(storedName)) : undefined) ??
+              null;
+
+            const golferFromId =
+              (pickId ? golferMap.get(pickId) : undefined) ??
+              (initialPrice?.golfer_id
+                ? golferMap.get(initialPrice.golfer_id)
+                : undefined) ??
+              null;
 
             const liveScore =
-              scoreByGolferId.get(pick.golfer_id) ??
-              scoreByName.get(normalizeName(golfer?.name)) ??
+              (pickId ? scoreByGolferId.get(pickId) : undefined) ??
+              (initialPrice?.golfer_id
+                ? scoreByGolferId.get(initialPrice.golfer_id)
+                : undefined) ??
+              (storedName ? scoreByName.get(normalizeName(storedName)) : undefined) ??
+              scoreByName.get(normalizeName(golferFromId?.name)) ??
+              (initialPrice
+                ? scoreByName.get(normalizeName(playerPriceName(initialPrice)))
+                : undefined) ??
               null;
+
+            const price =
+              initialPrice ??
+              (liveScore?.golfer_id
+                ? priceByGolferId.get(liveScore.golfer_id)
+                : undefined) ??
+              (liveScore?.player_name
+                ? priceByName.get(normalizeName(liveScore.player_name))
+                : undefined) ??
+              null;
+
+            const resolvedName =
+              golferFromId?.name ??
+              liveScore?.player_name ??
+              playerPriceName(price) ??
+              storedName ??
+              null;
+
+            const golfer =
+              golferFromId ??
+              (resolvedName
+                ? {
+                    id: pickId ?? price?.golfer_id ?? price?.id ?? liveScore?.golfer_id ?? pick.id,
+                    name: displayNameFromScore(resolvedName),
+                    salary: playerPriceSalary(price) ?? pickStoredSalary(pick),
+                    tier: numericValue(price?.tier),
+                    country: price?.country ?? null,
+                    world_rank: playerPriceWorldRank(price),
+                  }
+                : null);
 
             const hasScore = Boolean(
               liveScore &&
@@ -434,6 +608,12 @@ export default function LeaderboardPage() {
             return {
               pick,
               golfer,
+              price,
+              pickedSalary:
+                pickStoredSalary(pick) ??
+                playerPriceSalary(price) ??
+                golfer?.salary ??
+                null,
               liveScore,
               total,
               hasScore,
@@ -476,7 +656,15 @@ export default function LeaderboardPage() {
           movement,
         };
       });
-  }, [entries, picks, golfers, uniqueScores, countedPlayers, previousRanks]);
+  }, [
+    entries,
+    picks,
+    golfers,
+    playerPrices,
+    uniqueScores,
+    countedPlayers,
+    previousRanks,
+  ]);
 
   useEffect(() => {
     if (!isLocked || leaderboard.length === 0) return;
@@ -837,7 +1025,9 @@ export default function LeaderboardPage() {
                               : row.bestPlayer
                               ? `${playerDisplayName(
                                   row.bestPlayer.golfer,
-                                  row.bestPlayer.liveScore
+                                  row.bestPlayer.liveScore,
+                                  row.bestPlayer.price,
+                                  row.bestPlayer.pick
                                 )} (${scoreText(row.bestPlayer.total)})`
                               : "—"
                           }
@@ -888,7 +1078,9 @@ export default function LeaderboardPage() {
 
                               const displayName = playerDisplayName(
                                 player.golfer,
-                                player.liveScore
+                                player.liveScore,
+                                player.price,
+                                player.pick
                               );
 
                               return (
@@ -930,7 +1122,7 @@ export default function LeaderboardPage() {
                                     <span className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 sm:hidden">
                                       Salary
                                     </span>
-                                    <span>{money(player.golfer?.salary)}</span>
+                                    <span>{money(player.pickedSalary)}</span>
                                   </div>
 
                                   <div className="flex items-center justify-between gap-3 rounded-2xl bg-black/20 px-3 py-2 text-sm font-bold text-slate-300 sm:block sm:rounded-none sm:bg-transparent sm:px-0 sm:py-0">
@@ -961,8 +1153,10 @@ export default function LeaderboardPage() {
                                     <span
                                       className={cn(
                                         "rounded-full px-3 py-1 text-xs font-black",
-                                        player.isCut
-                                          ? "bg-red-400/15 text-red-200"
+                                        !picksVisible
+                                          ? "bg-emerald-400/15 text-emerald-200"
+                                          : player.isCut
+                                            ? "bg-red-400/15 text-red-200"
                                           : counted && player.hasScore
                                             ? "bg-emerald-400/15 text-emerald-200"
                                             : counted && !player.hasScore
@@ -970,13 +1164,15 @@ export default function LeaderboardPage() {
                                               : "bg-white/10 text-slate-400"
                                       )}
                                     >
-                                      {player.isCut
-                                        ? "Cut"
-                                        : counted
+                                      {!picksVisible
+                                        ? "Picked"
+                                        : player.isCut
+                                          ? "Cut"
+                                          : counted
                                           ? player.hasScore
                                             ? "Counted"
                                             : "No Score"
-                                          : "Dropped"}
+                                          : "Bench"}
                                     </span>
                                   </div>
                                 </div>
