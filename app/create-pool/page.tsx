@@ -64,7 +64,7 @@ type CreatedPool = {
 const CREATE_POOL_PATH = "/create-pool";
 const ROSTER_OPTIONS = [4, 6, 8, 10] as const;
 const MAX_PLAYER_OPTIONS = [8, 10, 12, 16, 20, 24, 32, 40, 50] as const;
-const SALARY_CAP_OPTIONS = [50000, 75000, 100000] as const;
+const SALARY_CAP_OPTIONS = [50000, 55000, 60000, 65000, 70000, 75000] as const;
 
 function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");

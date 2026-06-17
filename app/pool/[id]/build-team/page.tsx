@@ -404,7 +404,7 @@ export default function BuildTeamPage() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [search, setSearch] = useState("");
-  const [sort, setSort] = useState<SortMode>("favorite");
+  const [sort, setSort] = useState<SortMode>("salary");
 
   const returnTo = `/pool/${poolId}/build-team${
     entryIdFromUrl ? `?entryId=${encodeURIComponent(entryIdFromUrl)}` : ""
@@ -587,7 +587,9 @@ export default function BuildTeamPage() {
         .filter((row) => Boolean(row.player_name || row.name || row.golfer_id))
         .map((row, index, array) => buildGolferFromPrice(row, index, array.length));
 
-      const finalGolfers = deDupePlayers(rawGolfers).sort(sortByFavorite);
+      const finalGolfers = deDupePlayers(rawGolfers).sort(
+        (a, b) => b.salary - a.salary || sortByFavorite(a, b)
+      );
 
       if (finalGolfers.length === 0) {
         throw new Error(
@@ -693,26 +695,22 @@ export default function BuildTeamPage() {
     const term = searchSafe(search);
 
     let list = golfers.filter((golfer) => {
-      const haystack = searchSafe(
-        `${golfer.name} ${golfer.country ?? ""} ${golfer.tier ?? ""} ${
-          golfer.datagolf_rank ?? ""
-        } ${golfer.world_rank ?? ""} ${formatOdds(golfer.win_odds)}`
-      );
-
-      return haystack.includes(term);
+      if (!term) return true;
+      return searchSafe(golfer.name).includes(term);
     });
 
     if (!isSalaryCap) {
       list = [...list].sort((a, b) => {
-        const tierDiff = Number(a.tier) - Number(b.tier);
-        if (tierDiff !== 0) return tierDiff;
-
         if (sort === "salary") return b.salary - a.salary;
         if (sort === "name") return a.name.localeCompare(b.name);
         if (sort === "rank" || sort === "tier") {
+          const tierDiff = Number(a.tier) - Number(b.tier);
+          if (tierDiff !== 0) return tierDiff;
           return getRankNumber(a) - getRankNumber(b);
         }
 
+        const tierDiff = Number(a.tier) - Number(b.tier);
+        if (tierDiff !== 0) return tierDiff;
         return sortByFavorite(a, b);
       });
 
@@ -1183,7 +1181,7 @@ export default function BuildTeamPage() {
         )}
 
         <div className="mt-6 grid gap-6 xl:grid-cols-[410px_1fr]">
-          <aside className="h-fit rounded-[38px] border border-white/10 bg-[#07111f]/90 p-5 shadow-2xl backdrop-blur-2xl xl:sticky xl:top-6">
+          <aside className="min-w-0 h-fit rounded-[38px] border border-white/10 bg-[#07111f]/90 p-5 shadow-2xl backdrop-blur-2xl xl:sticky xl:top-6">
             <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-300">
               Your Team
             </p>
@@ -1194,6 +1192,16 @@ export default function BuildTeamPage() {
               disabled={isLocked}
               className="mt-4 w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-sm font-bold text-white outline-none placeholder:text-slate-600 focus:border-emerald-300/40 disabled:cursor-not-allowed disabled:opacity-60"
               placeholder="Team name"
+            />
+
+            <input
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              aria-label="Search golfers"
+              autoComplete="off"
+              className="mt-3 w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-sm font-bold text-white outline-none placeholder:text-slate-600 focus:border-emerald-300/40"
+              placeholder="Search golfers"
             />
 
             {isSalaryCap && (
@@ -1288,19 +1296,12 @@ export default function BuildTeamPage() {
             </button>
           </aside>
 
-          <section className="rounded-[38px] border border-white/10 bg-white/[0.05] p-5 shadow-2xl backdrop-blur-2xl">
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                className="w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-sm font-bold text-white outline-none placeholder:text-slate-600 focus:border-emerald-300/40 md:max-w-sm"
-                placeholder="Search golfers..."
-              />
-
+          <section className="min-w-0 rounded-[38px] border border-white/10 bg-white/[0.05] p-5 shadow-2xl backdrop-blur-2xl">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-end">
               <select
                 value={sort}
                 onChange={(event) => setSort(event.target.value as SortMode)}
-                className="rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-sm font-bold text-white outline-none focus:border-emerald-300/40"
+                className="w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-sm font-bold text-white outline-none focus:border-emerald-300/40 md:w-auto md:min-w-64"
               >
                 <option value="favorite" className="bg-[#07111f]">
                   {isSalaryCap ? "Sort by favorite to win" : "Sort by tier, favorite inside tier"}
@@ -1323,10 +1324,16 @@ export default function BuildTeamPage() {
             <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               {filteredGolfers.length === 0 ? (
                 <div className="col-span-full rounded-3xl border border-white/10 bg-black/20 p-8 text-center">
-                  <p className="text-xl font-black text-white">No golfers found.</p>
-                  <p className="mt-2 text-sm text-slate-400">
-                    This page only shows golfers from player_prices for this pool’s exact tournament_id.
+                  <p className="text-xl font-black text-white">
+                    {search.trim()
+                      ? "No golfers match your search."
+                      : "No golfers found."}
                   </p>
+                  {!search.trim() ? (
+                    <p className="mt-2 text-sm text-slate-400">
+                      This page only shows golfers from player_prices for this pool’s exact tournament_id.
+                    </p>
+                  ) : null}
                 </div>
               ) : (
                 filteredGolfers.map((golfer) => {
