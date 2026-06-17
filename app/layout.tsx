@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Footer from "../components/Footer";
 import {
@@ -47,6 +47,11 @@ export const metadata: Metadata = {
   },
 };
 
+export const viewport: Viewport = {
+  themeColor: "#030712",
+  colorScheme: "dark",
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -55,10 +60,10 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full w-full max-w-full overflow-x-hidden antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} h-full w-full max-w-full overflow-x-hidden bg-[#030712] antialiased`}
     >
-      <body className="min-h-full w-full max-w-full overflow-x-hidden flex flex-col bg-[#060816] text-white">
-        <div className="min-w-0 w-full max-w-full flex-1 overflow-x-hidden">
+      <body className="min-h-dvh w-full max-w-full overflow-x-hidden flex flex-col bg-[#030712] text-white">
+        <div className="min-w-0 w-full max-w-full flex-1 overflow-x-hidden bg-[#030712]">
           {children}
         </div>
         <Footer />
