@@ -206,6 +206,10 @@ function scoreText(value: number | null | undefined) {
   return n > 0 ? `+${n}` : `${n}`;
 }
 
+function rankLabel(rank: number, tied: boolean) {
+  return tied ? `T${rank}` : String(rank);
+}
+
 function hasLiveScoreValue(score: Score | null | undefined) {
   return score?.total_score !== null && score?.total_score !== undefined
     ? true
@@ -833,7 +837,7 @@ export default function LeaderboardPage() {
             ? counted.reduce((sum, player) => sum + player.total, 0)
             : 999;
 
-        const liveCount = players.filter((player) => player.hasScore).length;
+        const liveCount = players.filter((player) => player.liveScore).length;
 
         return {
           entry,
@@ -844,15 +848,44 @@ export default function LeaderboardPage() {
           bestPlayer: counted[0] ?? null,
         };
       })
-      .sort((a, b) => a.teamTotal - b.teamTotal)
-      .map((row, index) => {
-        const rank = index + 1;
+      .sort((a, b) => {
+        if (a.teamTotal !== b.teamTotal) return a.teamTotal - b.teamTotal;
+
+        const aTime = a.entry.created_at
+          ? new Date(a.entry.created_at).getTime()
+          : Number.MAX_SAFE_INTEGER;
+        const bTime = b.entry.created_at
+          ? new Date(b.entry.created_at).getTime()
+          : Number.MAX_SAFE_INTEGER;
+
+        if (aTime !== bTime) return aTime - bTime;
+
+        return String(a.entry.team_name ?? "").localeCompare(
+          String(b.entry.team_name ?? "")
+        );
+      })
+      .map((row, index, sortedRows) => {
+        const previousRow = sortedRows[index - 1];
+        const tied =
+          sortedRows.some(
+            (otherRow, otherIndex) =>
+              otherIndex !== index && otherRow.teamTotal === row.teamTotal
+          ) &&
+          row.teamTotal !== 999;
+        const rank =
+          previousRow && previousRow.teamTotal === row.teamTotal
+            ? sortedRows.findIndex(
+                (rankedRow) => rankedRow.teamTotal === row.teamTotal
+              ) + 1
+            : index + 1;
         const previousRank = previousRanks[row.entry.id];
         const movement = previousRank ? previousRank - rank : 0;
 
         return {
           ...row,
           rank,
+          rankLabel: rankLabel(rank, tied),
+          tied,
           movement,
         };
       });
@@ -1130,7 +1163,7 @@ export default function LeaderboardPage() {
                               "border-white/10 bg-white/5 text-white"
                           )}
                         >
-                          {picksVisible ? row.rank : "—"}
+                          {picksVisible ? row.rankLabel : "—"}
                         </div>
 
                         <div className="min-w-0 flex-1">
@@ -1152,7 +1185,13 @@ export default function LeaderboardPage() {
                               </span>
                             )}
 
-                            {picksVisible && row.rank === 1 && (
+                            {picksVisible && row.rank === 1 && row.tied && (
+                              <span className="w-fit whitespace-nowrap rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 text-[10px] font-black leading-none text-emerald-200 sm:px-3 sm:text-xs">
+                                TIED LEADER
+                              </span>
+                            )}
+
+                            {picksVisible && row.rank === 1 && !row.tied && (
                               <span className="w-fit whitespace-nowrap rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 text-[10px] font-black leading-none text-emerald-200 sm:px-3 sm:text-xs">
                                 CURRENT LEADER
                               </span>
@@ -1180,7 +1219,6 @@ export default function LeaderboardPage() {
                               <ScoringStatusBadge
                                 isLocked={isLocked}
                                 liveCount={row.liveCount}
-                                playerCount={row.players.length}
                               />
                             ) : (
                               <span className="w-fit whitespace-nowrap rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 text-[10px] font-black leading-none text-emerald-200 sm:px-3 sm:text-xs">
@@ -1239,9 +1277,9 @@ export default function LeaderboardPage() {
                             !picksVisible
                               ? "Hidden"
                               : leader &&
-                                  row.rank !== 1 &&
                                   leader.teamTotal !== 999 &&
-                                  row.teamTotal !== 999
+                                  row.teamTotal !== 999 &&
+                                  row.teamTotal !== leader.teamTotal
                               ? `${scoreText(row.teamTotal - leader.teamTotal)} back`
                               : "—"
                           }
@@ -1554,21 +1592,16 @@ export default function LeaderboardPage() {
 function ScoringStatusBadge({
   isLocked,
   liveCount,
-  playerCount,
 }: {
   isLocked: boolean;
   liveCount: number;
-  playerCount: number;
 }) {
   let label = "SCORING PENDING";
   let classes = "border-yellow-400/20 bg-yellow-400/10 text-yellow-100";
 
-  if (isLocked && playerCount > 0 && liveCount >= playerCount) {
+  if (isLocked && liveCount > 0) {
     label = "LIVE SCORING";
     classes = "border-emerald-400/20 bg-emerald-400/10 text-emerald-200";
-  } else if (isLocked && liveCount > 0 && liveCount < playerCount) {
-    label = "PARTIAL LIVE SCORING";
-    classes = "border-cyan-400/20 bg-cyan-400/10 text-cyan-100";
   }
 
   return (

@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 import dns from "node:dns";
 dns.setDefaultResultOrder("ipv4first");
 
+import crypto from "node:crypto";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 const supabase = createClient(
@@ -206,8 +207,76 @@ function addPriceName(
   }
 }
 
+function importSecret() {
+  return String(process.env.ADMIN_IMPORT_SECRET || process.env.CRON_SECRET || "");
+}
+
+function secretMatches(actual: string, expected: string) {
+  const actualBuffer = Buffer.from(actual);
+  const expectedBuffer = Buffer.from(expected);
+
+  return (
+    actualBuffer.length === expectedBuffer.length &&
+    crypto.timingSafeEqual(actualBuffer, expectedBuffer)
+  );
+}
+
+function requestImportSecret(req: Request) {
+  const authorization = String(req.headers.get("authorization") ?? "").trim();
+
+  if (authorization.toLowerCase().startsWith("bearer ")) {
+    return authorization.slice(7).trim();
+  }
+
+  return (
+    String(
+      req.headers.get("x-admin-secret") ??
+        req.headers.get("x-cron-secret") ??
+        new URL(req.url).searchParams.get("secret") ??
+        ""
+    ).trim()
+  );
+}
+
+function authorizeImport(req: Request) {
+  const expectedSecret = importSecret();
+
+  if (!expectedSecret) {
+    if (process.env.NODE_ENV !== "production") {
+      return { ok: true as const };
+    }
+
+    return {
+      ok: false as const,
+      status: 500,
+      error: "Missing ADMIN_IMPORT_SECRET or CRON_SECRET.",
+    };
+  }
+
+  const providedSecret = requestImportSecret(req);
+
+  if (providedSecret && secretMatches(providedSecret, expectedSecret)) {
+    return { ok: true as const };
+  }
+
+  return {
+    ok: false as const,
+    status: 401,
+    error: "Unauthorized DataGolf live import.",
+  };
+}
+
 export async function POST(req: Request) {
   try {
+    const authorization = authorizeImport(req);
+
+    if (!authorization.ok) {
+      return NextResponse.json(
+        { error: authorization.error },
+        { status: authorization.status }
+      );
+    }
+
     const body = await req.json().catch(() => ({}));
     const { searchParams } = new URL(req.url);
     const tournamentId =
