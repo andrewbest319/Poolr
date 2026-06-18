@@ -32,6 +32,9 @@ type Tournament = {
   lock_time: string | null;
   status: string | null;
   start_date?: string | null;
+  starts_at?: string | null;
+  started_at?: string | null;
+  start_time?: string | null;
 };
 
 type PoolrUser = {
@@ -391,10 +394,19 @@ export default function BuildTeamPage() {
   const [notice, setNotice] = useState("");
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<SortMode>("salary");
+  const [nowMs, setNowMs] = useState(() => Date.now());
 
   const returnTo = `/pool/${poolId}/build-team${
     entryIdFromUrl ? `?entryId=${encodeURIComponent(entryIdFromUrl)}` : ""
   }`;
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setNowMs(Date.now());
+    }, 15000);
+
+    return () => window.clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     async function requirePoolrAccount() {
@@ -601,7 +613,40 @@ export default function BuildTeamPage() {
     loadBuildTeam();
   }, [accountReady, poolrUserId, poolId, entryIdFromUrl]);
 
-  const isLocked = isPoolLocked(pool, tournament);
+  async function loadLatestLockState() {
+    if (!pool) return false;
+
+    const { data: latestPoolData, error: latestPoolError } = await supabase
+      .from("pools")
+      .select("*")
+      .eq("id", pool.id)
+      .maybeSingle();
+
+    if (latestPoolError) throw new Error(latestPoolError.message);
+
+    const latestPool = (latestPoolData as Pool | null) ?? pool;
+    setPool(latestPool);
+
+    let latestTournament = tournament;
+
+    if (latestPool.tournament_id) {
+      const { data: latestTournamentData, error: latestTournamentError } =
+        await supabase
+          .from("tournaments")
+          .select("*")
+          .eq("id", latestPool.tournament_id)
+          .maybeSingle();
+
+      if (latestTournamentError) throw new Error(latestTournamentError.message);
+
+      latestTournament = (latestTournamentData as Tournament | null) ?? null;
+      setTournament(latestTournament);
+    }
+
+    return isPoolLocked(latestPool, latestTournament, Date.now());
+  }
+
+  const isLocked = isPoolLocked(pool, tournament, nowMs);
 
   const rosterSize = Number(pool?.roster_size ?? 6);
   const countedPlayers = Number(pool?.counted_players ?? 4);
@@ -884,6 +929,10 @@ export default function BuildTeamPage() {
       }
 
       if (isLocked) {
+        throw new Error("This pool is locked. Teams can no longer be submitted.");
+      }
+
+      if (await loadLatestLockState()) {
         throw new Error("This pool is locked. Teams can no longer be submitted.");
       }
 

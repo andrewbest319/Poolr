@@ -33,6 +33,8 @@ type Tournament = {
   status: string | null;
   start_date?: string | null;
   starts_at?: string | null;
+  started_at?: string | null;
+  start_time?: string | null;
 };
 
 type Entry = {
@@ -204,6 +206,12 @@ function scoreText(value: number | null | undefined) {
   return n > 0 ? `+${n}` : `${n}`;
 }
 
+function hasLiveScoreValue(score: Score | null | undefined) {
+  return score?.total_score !== null && score?.total_score !== undefined
+    ? true
+    : score?.score !== null && score?.score !== undefined;
+}
+
 function dateText(value: string | null | undefined) {
   if (!value) return "Not updated yet";
 
@@ -273,14 +281,53 @@ function playerDisplayName(
 }
 
 function scoreField(score: Score | null | undefined, keys: string[]) {
+  return rowField(score, keys);
+}
+
+function rowField(
+  row: Record<string, unknown> | null | undefined,
+  keys: string[]
+) {
   for (const key of keys) {
-    const value = score?.[key];
+    const value = row?.[key];
     const text = String(value ?? "").trim();
 
     if (text) return text;
   }
 
   return null;
+}
+
+function rowFields(
+  row: Record<string, unknown> | null | undefined,
+  keys: string[]
+) {
+  return keys
+    .map((key) => rowField(row, [key]))
+    .filter(Boolean) as string[];
+}
+
+const liveScoreIdentifierKeys = [
+  "golfer_id",
+  "player_id",
+  "datagolf_id",
+  "dg_id",
+  "dg_player_id",
+  "datagolf_player_id",
+];
+
+function positionText(score: Score | null | undefined) {
+  const raw = String(score?.position ?? "").trim();
+
+  if (!raw) return "—";
+
+  const normalized = raw.toLowerCase();
+
+  if (normalized === "waiting" || normalized.includes("not started")) {
+    return "—";
+  }
+
+  return raw;
 }
 
 function formatClockTime(value: string) {
@@ -331,7 +378,7 @@ function teeTimeText(score: Score | null | undefined) {
 function thruText(score: Score | null | undefined) {
   const raw = String(score?.thru ?? "").trim();
 
-  if (!raw || raw === "-" || raw === "--") return null;
+  if (!raw || raw === "0" || raw === "-" || raw === "--") return null;
 
   const lower = raw.toLowerCase();
 
@@ -671,8 +718,8 @@ export default function LeaderboardPage() {
     const scoreByName = new Map<string, Score>();
 
     for (const score of uniqueScores) {
-      if (score.golfer_id) {
-        scoreByGolferId.set(score.golfer_id, score);
+      for (const scoreId of rowFields(score, liveScoreIdentifierKeys)) {
+        scoreByGolferId.set(scoreId, score);
       }
 
       if (score.player_name) {
@@ -693,6 +740,10 @@ export default function LeaderboardPage() {
               (pickId ? priceByGolferId.get(pickId) : undefined) ??
               (storedName ? priceByName.get(normalizeName(storedName)) : undefined) ??
               null;
+            const priceScoreIds = [
+              initialPrice?.id,
+              ...rowFields(initialPrice, liveScoreIdentifierKeys),
+            ].filter(Boolean) as string[];
 
             const golferFromId =
               (pickId ? golferMap.get(pickId) : undefined) ??
@@ -703,9 +754,9 @@ export default function LeaderboardPage() {
 
             const liveScore =
               (pickId ? scoreByGolferId.get(pickId) : undefined) ??
-              (initialPrice?.golfer_id
-                ? scoreByGolferId.get(initialPrice.golfer_id)
-                : undefined) ??
+              priceScoreIds
+                .map((scoreId) => scoreByGolferId.get(scoreId))
+                .find(Boolean) ??
               (storedName ? scoreByName.get(normalizeName(storedName)) : undefined) ??
               scoreByName.get(normalizeName(golferFromId?.name)) ??
               (initialPrice
@@ -743,10 +794,7 @@ export default function LeaderboardPage() {
                   }
                 : null);
 
-            const hasScore = Boolean(
-              liveScore &&
-                (liveScore.total_score !== null || liveScore.score !== null)
-            );
+            const hasScore = hasLiveScoreValue(liveScore);
 
             const total = hasScore
               ? Number(liveScore?.total_score ?? liveScore?.score ?? 0)
@@ -1299,7 +1347,7 @@ export default function LeaderboardPage() {
                                     <span className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 sm:hidden">
                                       Position
                                     </span>
-                                    <span>{player.liveScore?.position ?? "—"}</span>
+                                    <span>{positionText(player.liveScore)}</span>
                                   </div>
 
                                   <div
@@ -1418,6 +1466,7 @@ export default function LeaderboardPage() {
                   </div>
                 ) : (
                   topLiveScores.map((score) => {
+                    const hasScore = hasLiveScoreValue(score);
                     const total = Number(score.total_score ?? score.score ?? 0);
 
                     return (
@@ -1426,7 +1475,7 @@ export default function LeaderboardPage() {
                         className="grid min-w-0 grid-cols-[2.5rem_minmax(0,1fr)_3rem_2.5rem] gap-2 px-3 py-3 sm:grid-cols-[0.45fr_minmax(0,1.45fr)_0.65fr_0.55fr] sm:gap-3 sm:px-4"
                       >
                         <div className="text-sm font-black text-white">
-                          {score.position ?? "—"}
+                          {positionText(score)}
                         </div>
 
                         <div className="min-w-0">
@@ -1442,14 +1491,16 @@ export default function LeaderboardPage() {
                         <div
                           className={cn(
                             "text-sm font-black",
-                            total <= 0 ? "text-emerald-300" : "text-red-300"
+                            hasScore && total <= 0
+                              ? "text-emerald-300"
+                              : "text-red-300"
                           )}
                         >
-                          {scoreText(total)}
+                          {hasScore ? scoreText(total) : "—"}
                         </div>
 
                         <div className="text-sm font-bold text-slate-400">
-                          {score.thru ?? "—"}
+                          {thruText(score) ?? "—"}
                         </div>
                       </div>
                     );
