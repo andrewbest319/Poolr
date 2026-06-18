@@ -14,11 +14,29 @@ function isValidAction(value: unknown): value is LockAction {
   return value === "lock" || value === "unlock";
 }
 
+function hasTimeComponent(value: string) {
+  return /(?:T|\s)\d{1,2}:\d{2}/.test(value);
+}
+
+function statusLocksTournament(status: string | null | undefined) {
+  const normalized = String(status ?? "").toLowerCase();
+
+  return (
+    normalized === "locked" ||
+    normalized === "live" ||
+    normalized === "final"
+  );
+}
+
 function getTournamentLockDate(tournament: {
   lock_time?: string | null;
   start_date?: string | null;
 }) {
-  const rawDate = tournament.lock_time || tournament.start_date;
+  const rawDate =
+    tournament.lock_time ||
+    (tournament.start_date && hasTimeComponent(tournament.start_date)
+      ? tournament.start_date
+      : null);
 
   if (!rawDate) return null;
 
@@ -91,7 +109,7 @@ export async function POST(
 
     const { data: tournament, error: tournamentError } = await supabaseAdmin
       .from("tournaments")
-      .select("id, name, start_date, lock_time")
+      .select("id, name, status, start_date, lock_time")
       .eq("id", pool.tournament_id)
       .maybeSingle();
 
@@ -111,7 +129,9 @@ export async function POST(
 
     const lockDate = getTournamentLockDate(tournament);
     const now = new Date();
-    const tournamentStarted = lockDate ? now >= lockDate : false;
+    const tournamentStarted =
+      statusLocksTournament(tournament.status) ||
+      (lockDate ? now >= lockDate : false);
 
     if (action === "unlock" && tournamentStarted) {
       return NextResponse.json(

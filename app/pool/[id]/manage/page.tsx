@@ -512,6 +512,7 @@ export default function ManagePoolPage() {
     const lower = String(status ?? "").toLowerCase();
 
     return (
+      lower === "locked" ||
       lower === "live" ||
       lower === "final" ||
       (!!lockDateTime && lockDateTime.getTime() <= Date.now())

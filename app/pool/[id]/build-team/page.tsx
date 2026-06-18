@@ -218,8 +218,17 @@ function defaultTier(index: number, fieldSize: number) {
   return Math.min(tierCount, Math.floor(index / tierSize) + 1);
 }
 
+function hasTimeComponent(value: string) {
+  return /(?:T|\s)\d{1,2}:\d{2}/.test(value);
+}
+
 function getTournamentLockTimestamp(tournament: Tournament | null) {
-  return tournament?.lock_time || tournament?.start_date || null;
+  if (tournament?.lock_time) return tournament.lock_time;
+  if (tournament?.start_date && hasTimeComponent(tournament.start_date)) {
+    return tournament.start_date;
+  }
+
+  return null;
 }
 
 function lockText(pool: Pool | null, tournament: Tournament | null) {
