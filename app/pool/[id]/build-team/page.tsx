@@ -4,6 +4,11 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "../../../../lib/supabase";
+import {
+  getTournamentLockTimestamp,
+  isPoolLocked,
+  isPoolManuallyLocked,
+} from "../../../../lib/poolLock";
 
 type Pool = {
   id: string;
@@ -218,23 +223,10 @@ function defaultTier(index: number, fieldSize: number) {
   return Math.min(tierCount, Math.floor(index / tierSize) + 1);
 }
 
-function hasTimeComponent(value: string) {
-  return /(?:T|\s)\d{1,2}:\d{2}/.test(value);
-}
-
-function getTournamentLockTimestamp(tournament: Tournament | null) {
-  if (tournament?.lock_time) return tournament.lock_time;
-  if (tournament?.start_date && hasTimeComponent(tournament.start_date)) {
-    return tournament.start_date;
-  }
-
-  return null;
-}
-
 function lockText(pool: Pool | null, tournament: Tournament | null) {
   const status = String(tournament?.status ?? "").toLowerCase();
 
-  if (pool?.is_locked) return "Pool manually locked by commissioner";
+  if (isPoolManuallyLocked(pool)) return "Pool manually locked by commissioner";
   if (status === "live") return "Tournament is live — teams are locked";
   if (status === "final") return "Tournament final — teams are locked";
   if (status === "locked") return "Teams are locked";
@@ -259,22 +251,6 @@ function lockText(pool: Pool | null, tournament: Tournament | null) {
   if (hours > 0) return `${hours}h ${minutes % 60}m until lock`;
 
   return `${Math.max(minutes, 0)}m until lock`;
-}
-
-function isTournamentLocked(tournament: Tournament | null) {
-  const status = String(tournament?.status ?? "").toLowerCase();
-  const rawLockTimestamp = getTournamentLockTimestamp(tournament);
-
-  return (
-    status === "locked" ||
-    status === "live" ||
-    status === "final" ||
-    (!!rawLockTimestamp && new Date() >= new Date(rawLockTimestamp))
-  );
-}
-
-function isPoolLocked(pool: Pool | null, tournament: Tournament | null) {
-  return pool?.is_locked === true || isTournamentLocked(tournament);
 }
 
 function getPlayerName(row: PlayerPrice) {

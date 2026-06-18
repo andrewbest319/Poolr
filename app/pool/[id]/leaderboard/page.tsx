@@ -4,6 +4,11 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "../../../../lib/supabase";
+import {
+  getTournamentLockTimestamp,
+  isPoolLocked,
+  isPoolManuallyLocked,
+} from "../../../../lib/poolLock";
 
 type Pool = {
   id: string;
@@ -14,6 +19,10 @@ type Pool = {
   salary_cap: number | null;
   format: string | null;
   entry_fee?: number | null;
+  is_locked?: boolean | null;
+  locked_at?: string | null;
+  unlocked_at?: string | null;
+  lock_note?: string | null;
 };
 
 type Tournament = {
@@ -22,6 +31,8 @@ type Tournament = {
   location: string | null;
   lock_time: string | null;
   status: string | null;
+  start_date?: string | null;
+  starts_at?: string | null;
 };
 
 type Entry = {
@@ -70,6 +81,7 @@ type Score = {
   thru: string | null;
   status: string | null;
   updated_at: string | null;
+  [key: string]: unknown;
 };
 
 type PlayerPrice = {
@@ -207,14 +219,19 @@ function dateText(value: string | null | undefined) {
   });
 }
 
-function lockText(tournament: Tournament | null) {
+function lockText(pool: Pool | null, tournament: Tournament | null) {
   const status = String(tournament?.status ?? "").toLowerCase();
 
+  if (isPoolManuallyLocked(pool)) return "Pool manually locked by commissioner";
+  if (status === "locked") return "Teams are locked";
   if (status === "live") return "Tournament is live — teams are locked";
   if (status === "final") return "Tournament final — teams are locked";
-  if (!tournament?.lock_time) return "Lock time TBD";
 
-  const lockTime = new Date(tournament.lock_time).getTime();
+  const lockTimestamp = getTournamentLockTimestamp(tournament);
+
+  if (!lockTimestamp) return "Lock time TBD";
+
+  const lockTime = new Date(lockTimestamp).getTime();
   const diff = lockTime - Date.now();
 
   if (Number.isNaN(lockTime)) return "Lock time TBD";
@@ -254,6 +271,144 @@ function playerDisplayName(
   );
 }
 
+function scoreField(score: Score | null | undefined, keys: string[]) {
+  for (const key of keys) {
+    const value = score?.[key];
+    const text = String(value ?? "").trim();
+
+    if (text) return text;
+  }
+
+  return null;
+}
+
+function formatClockTime(value: string) {
+  const raw = value.trim();
+
+  if (!raw) return raw;
+
+  const dateLike = /\d{4}-\d{2}-\d{2}|T/.test(raw);
+  const parsed = new Date(raw);
+
+  if (dateLike && !Number.isNaN(parsed.getTime())) {
+    return parsed.toLocaleTimeString(undefined, {
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  }
+
+  const timeMatch = raw.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+
+  if (timeMatch) {
+    const hour24 = Number(timeMatch[1]);
+    const minute = timeMatch[2];
+
+    if (Number.isFinite(hour24)) {
+      const suffix = hour24 >= 12 ? "PM" : "AM";
+      const hour12 = hour24 % 12 || 12;
+
+      return `${hour12}:${minute} ${suffix}`;
+    }
+  }
+
+  return raw;
+}
+
+function teeTimeText(score: Score | null | undefined) {
+  const teeTime = scoreField(score, [
+    "tee_time",
+    "tee_time_local",
+    "teeTime",
+    "teetime",
+    "start_time",
+    "starting_time",
+  ]);
+
+  return teeTime ? `Tee ${formatClockTime(teeTime)}` : null;
+}
+
+function thruText(score: Score | null | undefined) {
+  const raw = String(score?.thru ?? "").trim();
+
+  if (!raw || raw === "-" || raw === "--") return null;
+
+  const lower = raw.toLowerCase();
+
+  if (lower === "f" || lower === "fin" || lower === "finished") return "F";
+  if (/^\d+$/.test(raw)) return `Thru ${Number(raw)}`;
+  if (lower.includes("thru")) return raw;
+
+  return raw;
+}
+
+function cleanStatus(value: string) {
+  return value
+    .replace(/[_-]+/g, " ")
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(" ");
+}
+
+function playerLiveStatus(
+  score: Score | null,
+  hasScore: boolean,
+  isCut: boolean
+) {
+  if (isCut) return { label: "Cut", tone: "danger" as const };
+
+  const rawStatus = String(score?.status ?? "").trim();
+  const status = rawStatus.toLowerCase();
+  const thru = thruText(score);
+
+  if (
+    status === "wd" ||
+    status.includes("withdraw") ||
+    status.includes("disqual")
+  ) {
+    return { label: status === "wd" ? "WD" : cleanStatus(rawStatus), tone: "danger" as const };
+  }
+
+  if (
+    thru === "F" ||
+    status === "f" ||
+    status.includes("finished") ||
+    status.includes("complete")
+  ) {
+    return { label: "F", tone: "finished" as const };
+  }
+
+  if (thru) return { label: thru, tone: "live" as const };
+
+  const teeTime = teeTimeText(score);
+
+  if (teeTime) return { label: teeTime, tone: "pending" as const };
+
+  if (status.includes("not started")) {
+    return { label: "Not started", tone: "pending" as const };
+  }
+
+  if (rawStatus && status !== "live" && status !== "active") {
+    return {
+      label: cleanStatus(rawStatus),
+      tone: hasScore ? ("live" as const) : ("pending" as const),
+    };
+  }
+
+  if (hasScore) return { label: "In progress", tone: "live" as const };
+
+  return { label: "No score", tone: "pending" as const };
+}
+
+function playerLiveStatusClass(tone: ReturnType<typeof playerLiveStatus>["tone"]) {
+  if (tone === "danger") return "bg-red-400/15 text-red-200";
+  if (tone === "finished") return "bg-emerald-400/15 text-emerald-200";
+  if (tone === "live") return "bg-cyan-400/15 text-cyan-100";
+  if (tone === "pending") return "bg-yellow-400/10 text-yellow-100";
+
+  return "bg-white/10 text-slate-400";
+}
+
 export default function LeaderboardPage() {
   const params = useParams<{ id: string }>();
   const id = params.id;
@@ -273,11 +428,7 @@ export default function LeaderboardPage() {
   const [previousRanks, setPreviousRanks] = useState<Record<string, number>>({});
   const [poolrUserId, setPoolrUserId] = useState("");
 
-  const isLocked = Boolean(
-    String(tournament?.status ?? "").toLowerCase() === "live" ||
-      String(tournament?.status ?? "").toLowerCase() === "final" ||
-      (!!tournament?.lock_time && new Date() >= new Date(tournament.lock_time))
-  );
+  const isLocked = isPoolLocked(pool, tournament);
 
   useEffect(() => {
     try {
@@ -795,7 +946,7 @@ export default function LeaderboardPage() {
               </p>
 
               <p className="mt-2 text-sm font-bold text-emerald-200">
-                {lockText(tournament)}
+                {lockText(pool, tournament)}
               </p>
             </div>
 
@@ -1075,6 +1226,11 @@ export default function LeaderboardPage() {
                                 (countedPlayer) =>
                                   countedPlayer.pick.id === player.pick.id
                               );
+                              const liveStatus = playerLiveStatus(
+                                player.liveScore,
+                                player.hasScore,
+                                player.isCut
+                              );
 
                               const displayName = playerDisplayName(
                                 player.golfer,
@@ -1106,6 +1262,19 @@ export default function LeaderboardPage() {
                                       {!player.isHot && player.isWarm && (
                                         <span className="ml-2 rounded-full bg-yellow-400/10 px-2 py-0.5 text-xs font-black text-yellow-100">
                                           Heating Up
+                                        </span>
+                                      )}
+
+                                      {picksVisible && (
+                                        <span
+                                          className={cn(
+                                            "ml-2 rounded-full px-2 py-0.5 text-xs font-black",
+                                            counted
+                                              ? "bg-emerald-400/15 text-emerald-200"
+                                              : "bg-white/10 text-slate-400"
+                                          )}
+                                        >
+                                          {counted ? "Counted" : "Bench"}
                                         </span>
                                       )}
                                     </p>
@@ -1155,24 +1324,12 @@ export default function LeaderboardPage() {
                                         "rounded-full px-3 py-1 text-xs font-black",
                                         !picksVisible
                                           ? "bg-emerald-400/15 text-emerald-200"
-                                          : player.isCut
-                                            ? "bg-red-400/15 text-red-200"
-                                          : counted && player.hasScore
-                                            ? "bg-emerald-400/15 text-emerald-200"
-                                            : counted && !player.hasScore
-                                              ? "bg-yellow-400/10 text-yellow-100"
-                                              : "bg-white/10 text-slate-400"
+                                          : playerLiveStatusClass(liveStatus.tone)
                                       )}
                                     >
                                       {!picksVisible
                                         ? "Picked"
-                                        : player.isCut
-                                          ? "Cut"
-                                          : counted
-                                          ? player.hasScore
-                                            ? "Counted"
-                                            : "No Score"
-                                          : "Bench"}
+                                        : liveStatus.label}
                                     </span>
                                   </div>
                                 </div>

@@ -2,6 +2,10 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import {
+  getTournamentLockTimestamp,
+  isTournamentLocked,
+} from "../../../../../lib/poolLock";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -12,39 +16,6 @@ type LockAction = "lock" | "unlock";
 
 function isValidAction(value: unknown): value is LockAction {
   return value === "lock" || value === "unlock";
-}
-
-function hasTimeComponent(value: string) {
-  return /(?:T|\s)\d{1,2}:\d{2}/.test(value);
-}
-
-function statusLocksTournament(status: string | null | undefined) {
-  const normalized = String(status ?? "").toLowerCase();
-
-  return (
-    normalized === "locked" ||
-    normalized === "live" ||
-    normalized === "final"
-  );
-}
-
-function getTournamentLockDate(tournament: {
-  lock_time?: string | null;
-  start_date?: string | null;
-}) {
-  const rawDate =
-    tournament.lock_time ||
-    (tournament.start_date && hasTimeComponent(tournament.start_date)
-      ? tournament.start_date
-      : null);
-
-  if (!rawDate) return null;
-
-  const date = new Date(rawDate);
-
-  if (Number.isNaN(date.getTime())) return null;
-
-  return date;
 }
 
 export async function POST(
@@ -109,7 +80,7 @@ export async function POST(
 
     const { data: tournament, error: tournamentError } = await supabaseAdmin
       .from("tournaments")
-      .select("id, name, status, start_date, lock_time")
+      .select("*")
       .eq("id", pool.tournament_id)
       .maybeSingle();
 
@@ -127,11 +98,11 @@ export async function POST(
       );
     }
 
-    const lockDate = getTournamentLockDate(tournament);
+    const lockTimestamp = getTournamentLockTimestamp(tournament);
+    const lockTime = lockTimestamp ? new Date(lockTimestamp).getTime() : NaN;
+    const lockDate = Number.isFinite(lockTime) ? new Date(lockTime) : null;
     const now = new Date();
-    const tournamentStarted =
-      statusLocksTournament(tournament.status) ||
-      (lockDate ? now >= lockDate : false);
+    const tournamentStarted = isTournamentLocked(tournament, now.getTime());
 
     if (action === "unlock" && tournamentStarted) {
       return NextResponse.json(
@@ -156,6 +127,7 @@ export async function POST(
           }
         : {
             is_locked: false,
+            locked_at: null,
             unlocked_at: now.toISOString(),
             lock_note: "Unlocked by pool creator before tournament start.",
           };
