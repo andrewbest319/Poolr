@@ -314,6 +314,33 @@ export function authorizeImport(req: Request) {
   };
 }
 
+export function authorizeCron(req: Request) {
+  const expectedSecret = String(process.env.CRON_SECRET ?? "").trim();
+
+  if (!expectedSecret) {
+    return {
+      ok: false as const,
+      status: 401,
+      error: "Missing CRON_SECRET.",
+    };
+  }
+
+  const authorization = String(req.headers.get("authorization") ?? "").trim();
+  const providedSecret = authorization.toLowerCase().startsWith("bearer ")
+    ? authorization.slice(7).trim()
+    : "";
+
+  if (providedSecret && secretMatches(providedSecret, expectedSecret)) {
+    return { ok: true as const };
+  }
+
+  return {
+    ok: false as const,
+    status: 401,
+    error: "Unauthorized DataGolf cron sync.",
+  };
+}
+
 export async function importDataGolfLiveTournament({
   tournamentId,
   explicitTour = "",

@@ -1,7 +1,7 @@
 {
   "crons": [
     {
-      "path": "/api/admin/import-datagolf-live",
+      "path": "/api/cron/datagolf-live",
       "schedule": "*/5 * * * *"
     }
   ]
