@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import AccountCenterLink from "../components/AccountCenterLink";
 import {
   homeDescription,
   homeTitle,
@@ -61,6 +62,12 @@ export default function HomePage() {
                 >
                   Join with Code
                 </Link>
+
+                <AccountCenterLink
+                  className="inline-flex min-h-12 items-center justify-center rounded-2xl border border-emerald-300/25 bg-black/25 px-6 py-3.5 text-sm font-semibold text-emerald-100 transition hover:border-emerald-300/40 hover:bg-emerald-400/10"
+                >
+                  Account Center
+                </AccountCenterLink>
               </div>
 
               <div className="mt-10 grid max-w-3xl gap-4 sm:grid-cols-3">
@@ -255,6 +262,11 @@ export default function HomePage() {
             >
               Join a Pool
             </Link>
+            <AccountCenterLink
+              className="rounded-2xl border border-emerald-300/25 bg-black/20 px-6 py-3.5 text-sm font-semibold text-emerald-100 transition hover:border-emerald-300/40 hover:bg-emerald-400/10"
+            >
+              Account Center
+            </AccountCenterLink>
           </div>
         </div>
       </section>

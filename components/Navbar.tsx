@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import AccountCenterLink from "./AccountCenterLink";
 
 export default function Navbar() {
   const pathname = usePathname();
+  const accountIsActive = pathname.startsWith("/account");
 
   return (
     <header className="sticky top-0 z-50 w-full max-w-full overflow-x-hidden border-b border-white/10 bg-neutral-950/70 backdrop-blur-xl">
@@ -43,6 +45,17 @@ export default function Navbar() {
           >
             Join
           </Link>
+
+          <AccountCenterLink
+            className={`rounded-xl px-3 py-2 text-sm font-semibold transition sm:px-4 ${
+              accountIsActive
+                ? "bg-white/10 text-white"
+                : "text-neutral-300 hover:bg-white/5"
+            }`}
+          >
+            <span className="sm:hidden">Acct</span>
+            <span className="hidden sm:inline">Account</span>
+          </AccountCenterLink>
 
           <Link
             href="/create-pool"
