@@ -34,7 +34,8 @@ export function tournamentStatusLocksPicks(status: string | null | undefined) {
   return (
     normalized === "locked" ||
     normalized === "live" ||
-    normalized === "final"
+    normalized === "final" ||
+    normalized === "completed"
   );
 }
 

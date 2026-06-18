@@ -4,9 +4,14 @@ import Link from "next/link";
 import React, { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "../../../../lib/supabase";
+import {
+  isPoolLocked,
+  isPoolManuallyLocked,
+  isTournamentLocked,
+} from "../../../../lib/poolLock";
 
 type PoolFormat = "Salary Cap" | "Tiered Draft";
-type TournamentStatus = "Draft" | "Open" | "Locked" | "Live" | "Final" | "Hidden";
+type TournamentStatus = "Draft" | "Open" | "Locked" | "Live" | "Final" | "Completed" | "Hidden";
 type PaymentMode = "up-front" | "pay-later" | "free";
 
 type Pool = {
@@ -117,6 +122,7 @@ function toTitleStatus(value: string | null | undefined): TournamentStatus {
   if (status === "locked") return "Locked";
   if (status === "live") return "Live";
   if (status === "final") return "Final";
+  if (status === "completed") return "Completed";
   if (status === "hidden") return "Hidden";
 
   return "Open";
@@ -500,27 +506,26 @@ export default function ManagePoolPage() {
 
   const [inviteCode, setInviteCode] = useState("");
 
-  const lockDateTime = useMemo(() => {
-    const timestamp = buildTimestamp(lockDate, lockTime);
-    if (!timestamp) return null;
-
-    const date = new Date(timestamp.replace(" ", "T"));
-    return Number.isNaN(date.getTime()) ? null : date;
-  }, [lockDate, lockTime]);
-
   const tournamentStarted = useMemo(() => {
-    const lower = String(status ?? "").toLowerCase();
-
-    return (
-      lower === "locked" ||
-      lower === "live" ||
-      lower === "final" ||
-      (!!lockDateTime && lockDateTime.getTime() <= Date.now())
+    return isTournamentLocked(
+      {
+        ...tournament,
+        status,
+        lock_time: buildTimestamp(lockDate, lockTime),
+      },
+      Date.now()
     );
-  }, [status, lockDateTime]);
+  }, [status, lockDate, lockTime, tournament]);
 
-  const manualPoolLocked = pool?.is_locked === true;
-  const isLocked = manualPoolLocked || tournamentStarted;
+  const manualPoolLocked = isPoolManuallyLocked(pool);
+  const isLocked = isPoolLocked(
+    pool,
+    {
+      ...tournament,
+      status,
+      lock_time: buildTimestamp(lockDate, lockTime),
+    }
+  );
 
   const isCreator =
     !!pool &&

@@ -226,6 +226,7 @@ function lockText(pool: Pool | null, tournament: Tournament | null) {
   if (status === "locked") return "Teams are locked";
   if (status === "live") return "Tournament is live — teams are locked";
   if (status === "final") return "Tournament final — teams are locked";
+  if (status === "completed") return "Tournament complete — teams are locked";
 
   const lockTimestamp = getTournamentLockTimestamp(tournament);
 
