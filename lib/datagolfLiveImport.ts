@@ -469,6 +469,11 @@ export async function importDataGolfLiveTournament({
   const rowMatches = players
     .map((p: any) => {
       const started = hasStarted(p);
+      const roundScore = numberOrNull(p.round);
+      const tournamentTotal = numberOrNull(p.total);
+      const position = !isWaitingPosition(p.position)
+        ? textOrNull(p.position)
+        : null;
       const dataGolfName = textOrNull(p.player_name);
       const price = priceByName.get(normalizeName(dataGolfName));
       const existing =
@@ -481,12 +486,9 @@ export async function importDataGolfLiveTournament({
         tournament_id: tournamentId,
         golfer_id: price?.golfer_id ?? existing?.golfer_id ?? null,
         player_name: dataGolfName,
-        score: started ? numberOrNull(p.round) : null,
-        total_score: started ? numberOrNull(p.total) : null,
-        position:
-          started && !isWaitingPosition(p.position)
-            ? textOrNull(p.position)
-            : null,
+        score: roundScore,
+        total_score: tournamentTotal,
+        position,
         thru: started ? textOrNull(p.thru) : null,
         status: liveStatus(p, started),
         updated_at: importTimestamp,
@@ -554,6 +556,11 @@ export async function importDataGolfLiveTournament({
       updatedRows,
       insertedRows: rows.length - updatedRows,
       upsertConflictTarget: "id",
+      scoreFieldMapping: {
+        score: "DataGolf round (current round)",
+        total_score: "DataGolf total (full tournament total)",
+      },
+      rowsWithTournamentTotals: rows.filter((row) => row.total_score !== null).length,
       matchedGolferIds: rows.filter((row) => row.golfer_id).length,
       unmatchedLiveRows: rows.filter((row) => !row.golfer_id).length,
       unmatchedSample: players

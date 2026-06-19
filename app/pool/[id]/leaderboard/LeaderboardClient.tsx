@@ -211,9 +211,11 @@ function rankLabel(rank: number, tied: boolean) {
 }
 
 function hasLiveScoreValue(score: Score | null | undefined) {
-  return score?.total_score !== null && score?.total_score !== undefined
-    ? true
-    : score?.score !== null && score?.score !== undefined;
+  return liveTotalScore(score) !== null;
+}
+
+function liveTotalScore(score: Score | null | undefined) {
+  return numericValue(score?.total_score);
 }
 
 function dateText(value: string | null | undefined) {
@@ -683,8 +685,8 @@ export default function LeaderboardPage() {
     }
 
     return Array.from(map.values()).sort((a, b) => {
-      const aScore = Number(a.total_score ?? a.score ?? 999);
-      const bScore = Number(b.total_score ?? b.score ?? 999);
+      const aScore = liveTotalScore(a) ?? 999;
+      const bScore = liveTotalScore(b) ?? 999;
 
       return aScore - bScore;
     });
@@ -799,10 +801,9 @@ export default function LeaderboardPage() {
                 : null);
 
             const hasScore = hasLiveScoreValue(liveScore);
+            const tournamentTotal = liveTotalScore(liveScore);
 
-            const total = hasScore
-              ? Number(liveScore?.total_score ?? liveScore?.score ?? 0)
-              : 999;
+            const total = tournamentTotal ?? 999;
 
             const status = String(liveScore?.status ?? "").toLowerCase();
             const position = String(liveScore?.position ?? "").toLowerCase();
@@ -1505,7 +1506,7 @@ export default function LeaderboardPage() {
                 ) : (
                   topLiveScores.map((score) => {
                     const hasScore = hasLiveScoreValue(score);
-                    const total = Number(score.total_score ?? score.score ?? 0);
+                    const total = liveTotalScore(score);
 
                     return (
                       <div
@@ -1529,7 +1530,7 @@ export default function LeaderboardPage() {
                         <div
                           className={cn(
                             "text-sm font-black",
-                            hasScore && total <= 0
+                            hasScore && Number(total) <= 0
                               ? "text-emerald-300"
                               : "text-red-300"
                           )}

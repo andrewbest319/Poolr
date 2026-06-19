@@ -70,9 +70,16 @@ function cn(...classes: Array<string | false | null | undefined>) {
 }
 
 function normalizeName(name: string | null | undefined) {
-  return String(name ?? "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, "");
+  const raw = String(name ?? "").trim();
+
+  if (!raw) return "";
+
+  if (raw.includes(",")) {
+    const [last, first] = raw.split(",").map((part) => part.trim());
+    return `${first}${last}`.toLowerCase().replace(/[^a-z0-9]/g, "");
+  }
+
+  return raw.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
 function formatMoney(value: number | null | undefined) {
@@ -85,6 +92,14 @@ function formatScore(value: number | null | undefined) {
   const score = Number(value);
   if (score === 0) return "E";
   return score > 0 ? `+${score}` : `${score}`;
+}
+
+function liveTotalScore(score: Score | null | undefined) {
+  if (score?.total_score === null || score?.total_score === undefined) return null;
+
+  const total = Number(score.total_score);
+
+  return Number.isFinite(total) ? total : null;
 }
 
 function formatDateTime(value: string | null | undefined) {
@@ -264,7 +279,7 @@ export default async function LeaderboardPage({
             scoreByName.get(normalizeName(golfer?.name)) ??
             null;
 
-          const totalScore = Number(liveScore?.total_score ?? liveScore?.score ?? 0);
+          const totalScore = liveTotalScore(liveScore);
 
           return {
             pick,
@@ -273,13 +288,18 @@ export default async function LeaderboardPage({
             totalScore,
           };
         })
-        .sort((a, b) => a.totalScore - b.totalScore);
+        .sort((a, b) => (a.totalScore ?? 999) - (b.totalScore ?? 999));
 
-      const countedPlayers = players.slice(0, pool.counted_players);
-      const totalScore = countedPlayers.reduce(
-        (sum, player) => sum + player.totalScore,
-        0
-      );
+      const countedPlayers = players
+        .filter((player) => player.totalScore !== null)
+        .slice(0, pool.counted_players);
+      const totalScore =
+        countedPlayers.length > 0
+          ? countedPlayers.reduce(
+              (sum, player) => sum + Number(player.totalScore),
+              0
+            )
+          : 999;
 
       const lastUpdated =
         players
@@ -310,9 +330,15 @@ export default async function LeaderboardPage({
     }));
 
   const submittedCount = leaderboard.filter((row) => row.entry.submitted).length;
-  const leaderScore = leaderboard.length ? leaderboard[0].totalScore : 0;
-  const avgScore = leaderboard.length
-    ? leaderboard.reduce((sum, row) => sum + row.totalScore, 0) / leaderboard.length
+  const leaderScore =
+    leaderboard.length && leaderboard[0].totalScore !== 999
+      ? leaderboard[0].totalScore
+      : null;
+  const scoredRows = leaderboard.filter(
+    (row) => row.countedPlayers.length > 0 && row.totalScore !== 999
+  );
+  const avgScore = scoredRows.length
+    ? scoredRows.reduce((sum, row) => sum + row.totalScore, 0) / scoredRows.length
     : 0;
 
   const latestUpdate =
@@ -322,7 +348,9 @@ export default async function LeaderboardPage({
       .sort()
       .at(-1) ?? null;
 
-  const topLiveScores = scores.slice(0, 25);
+  const topLiveScores = [...scores]
+    .sort((a, b) => (liveTotalScore(a) ?? 999) - (liveTotalScore(b) ?? 999))
+    .slice(0, 25);
 
   return (
     <main className="min-h-screen bg-[#040816] text-white">
@@ -440,7 +468,7 @@ export default async function LeaderboardPage({
                     <div className="grid gap-3 sm:grid-cols-3">
                       <StatTile
                         label="Total Score"
-                        value={formatScore(row.totalScore)}
+                        value={row.totalScore === 999 ? "—" : formatScore(row.totalScore)}
                         hint={`${pool.counted_players} scores counted`}
                       />
                       <StatTile
@@ -519,7 +547,7 @@ export default async function LeaderboardPage({
                               <div
                                 className={cn(
                                   "text-sm font-bold",
-                                  player.totalScore <= 0
+                                  player.totalScore !== null && player.totalScore <= 0
                                     ? "text-emerald-300"
                                     : "text-red-300"
                                 )}
@@ -585,12 +613,13 @@ export default async function LeaderboardPage({
                       <div
                         className={cn(
                           "text-sm font-bold",
-                          Number(score.total_score ?? score.score ?? 0) <= 0
+                          liveTotalScore(score) !== null &&
+                            Number(liveTotalScore(score)) <= 0
                             ? "text-emerald-300"
                             : "text-red-300"
                         )}
                       >
-                        {formatScore(score.total_score ?? score.score)}
+                        {formatScore(liveTotalScore(score))}
                       </div>
                       <div className="text-sm text-slate-300">
                         {score.thru ?? "—"}
