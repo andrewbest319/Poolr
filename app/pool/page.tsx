@@ -1,4 +1,9 @@
 import Link from "next/link";
+import {
+  adjustedLiveTotalScore,
+  cutAdjustedTournamentTotal,
+  cutStatusLabel,
+} from "../../lib/cutScoring";
 import { supabase } from "../../lib/supabase";
 
 type PoolFormat = "salary_cap" | "tiered_draft" | "salary-cap" | "tiered-draft";
@@ -92,14 +97,6 @@ function formatScore(value: number | null | undefined) {
   const score = Number(value);
   if (score === 0) return "E";
   return score > 0 ? `+${score}` : `${score}`;
-}
-
-function liveTotalScore(score: Score | null | undefined) {
-  if (score?.total_score === null || score?.total_score === undefined) return null;
-
-  const total = Number(score.total_score);
-
-  return Number.isFinite(total) ? total : null;
 }
 
 function formatDateTime(value: string | null | undefined) {
@@ -257,6 +254,7 @@ export default async function LeaderboardPage({
     .order("total_score", { ascending: true });
 
   const scores = (scoresData ?? []) as Score[];
+  const cutAdjustedTotal = cutAdjustedTournamentTotal(scores);
 
   const scoreByGolferId = new Map<string, Score>();
   const scoreByName = new Map<string, Score>();
@@ -279,12 +277,18 @@ export default async function LeaderboardPage({
             scoreByName.get(normalizeName(golfer?.name)) ??
             null;
 
-          const totalScore = liveTotalScore(liveScore);
+          const totalScore = adjustedLiveTotalScore(
+            liveScore,
+            cutAdjustedTotal
+          );
+          const cutLabel = cutStatusLabel(liveScore);
 
           return {
             pick,
             golfer,
             liveScore,
+            cutLabel,
+            isCutAdjusted: cutLabel !== null && cutAdjustedTotal !== null,
             totalScore,
           };
         })
@@ -349,7 +353,11 @@ export default async function LeaderboardPage({
       .at(-1) ?? null;
 
   const topLiveScores = [...scores]
-    .sort((a, b) => (liveTotalScore(a) ?? 999) - (liveTotalScore(b) ?? 999))
+    .sort(
+      (a, b) =>
+        (adjustedLiveTotalScore(a, cutAdjustedTotal) ?? 999) -
+        (adjustedLiveTotalScore(b, cutAdjustedTotal) ?? 999)
+    )
     .slice(0, 25);
 
   return (
@@ -541,7 +549,7 @@ export default async function LeaderboardPage({
                               </div>
 
                               <div className="text-sm text-slate-300">
-                                {player.liveScore?.position ?? "—"}
+                                {player.cutLabel ?? player.liveScore?.position ?? "—"}
                               </div>
 
                               <div
@@ -552,7 +560,12 @@ export default async function LeaderboardPage({
                                     : "text-red-300"
                                 )}
                               >
-                                {formatScore(player.totalScore)}
+                                <div>{formatScore(player.totalScore)}</div>
+                                {player.isCutAdjusted ? (
+                                  <p className="mt-1 text-[11px] font-medium text-slate-500">
+                                    Cut • adjusted
+                                  </p>
+                                ) : null}
                               </div>
                             </div>
                           );
@@ -594,38 +607,48 @@ export default async function LeaderboardPage({
                     No DataGolf scores found for this tournament yet.
                   </div>
                 ) : (
-                  topLiveScores.map((score) => (
-                    <div
-                      key={score.id}
-                      className="grid grid-cols-[0.45fr_1.4fr_0.7fr_0.7fr] gap-3 px-4 py-4"
-                    >
-                      <div className="text-sm font-semibold text-white">
-                        {score.position ?? "—"}
-                      </div>
-                      <div>
-                        <p className="font-semibold text-white">
-                          {score.player_name ?? "Unknown Player"}
-                        </p>
-                        <p className="mt-1 text-xs text-slate-500">
-                          Updated {formatDateTime(score.updated_at)}
-                        </p>
-                      </div>
+                  topLiveScores.map((score) => {
+                    const totalScore = adjustedLiveTotalScore(
+                      score,
+                      cutAdjustedTotal
+                    );
+                    const cutLabel = cutStatusLabel(score);
+
+                    return (
                       <div
-                        className={cn(
-                          "text-sm font-bold",
-                          liveTotalScore(score) !== null &&
-                            Number(liveTotalScore(score)) <= 0
-                            ? "text-emerald-300"
-                            : "text-red-300"
-                        )}
+                        key={score.id}
+                        className="grid grid-cols-[0.45fr_1.4fr_0.7fr_0.7fr] gap-3 px-4 py-4"
                       >
-                        {formatScore(liveTotalScore(score))}
+                        <div className="text-sm font-semibold text-white">
+                          {cutLabel ?? score.position ?? "—"}
+                        </div>
+                        <div>
+                          <p className="font-semibold text-white">
+                            {score.player_name ?? "Unknown Player"}
+                          </p>
+                          <p className="mt-1 text-xs text-slate-500">
+                            Updated {formatDateTime(score.updated_at)}
+                            {cutLabel && cutAdjustedTotal !== null
+                              ? " • Cut adjusted"
+                              : ""}
+                          </p>
+                        </div>
+                        <div
+                          className={cn(
+                            "text-sm font-bold",
+                            totalScore !== null && totalScore <= 0
+                              ? "text-emerald-300"
+                              : "text-red-300"
+                          )}
+                        >
+                          {formatScore(totalScore)}
+                        </div>
+                        <div className="text-sm text-slate-300">
+                          {score.thru ?? "—"}
+                        </div>
                       </div>
-                      <div className="text-sm text-slate-300">
-                        {score.thru ?? "—"}
-                      </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </div>

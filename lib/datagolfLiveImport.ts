@@ -3,6 +3,7 @@ dns.setDefaultResultOrder("ipv4first");
 
 import crypto from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
+import { cutStatusLabel } from "./cutScoring";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -186,6 +187,14 @@ function hasStarted(row: any) {
 }
 
 function liveStatus(row: any, started: boolean) {
+  const cutLabel = cutStatusLabel({
+    position: row?.position,
+    status: row?.status,
+    thru: row?.thru,
+  });
+
+  if (cutLabel) return cutLabel;
+
   if (!started) return "Not started";
 
   const thru = String(row?.thru ?? "").trim().toLowerCase();
@@ -579,6 +588,7 @@ export async function importDataGolfLiveTournament({
       waiting: rows.filter((row) => row.status === "Not started").length,
       live: liveRows.length,
       finished: rows.filter((row) => row.status === "Finished").length,
+      cut: rows.filter((row) => cutStatusLabel(row)).length,
     },
   };
 }

@@ -5,6 +5,12 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "../../../../lib/supabase";
 import {
+  adjustedLiveTotalScore,
+  cutAdjustedTournamentTotal,
+  cutStatusLabel,
+  liveTotalScore,
+} from "../../../../lib/cutScoring";
+import {
   getTournamentLockTimestamp,
   isPoolLocked,
   isPoolManuallyLocked,
@@ -210,14 +216,6 @@ function rankLabel(rank: number, tied: boolean) {
   return tied ? `T${rank}` : String(rank);
 }
 
-function hasLiveScoreValue(score: Score | null | undefined) {
-  return liveTotalScore(score) !== null;
-}
-
-function liveTotalScore(score: Score | null | undefined) {
-  return numericValue(score?.total_score);
-}
-
 function dateText(value: string | null | undefined) {
   if (!value) return "Not updated yet";
 
@@ -323,6 +321,10 @@ const liveScoreIdentifierKeys = [
 ];
 
 function positionText(score: Score | null | undefined) {
+  const cutLabel = cutStatusLabel(score);
+
+  if (cutLabel) return cutLabel;
+
   const raw = String(score?.position ?? "").trim();
 
   if (!raw) return "—";
@@ -407,9 +409,9 @@ function cleanStatus(value: string) {
 function playerLiveStatus(
   score: Score | null,
   hasScore: boolean,
-  isCut: boolean
+  cutLabel: string | null
 ) {
-  if (isCut) return { label: "Cut", tone: "danger" as const };
+  if (cutLabel) return { label: cutLabel, tone: "danger" as const };
 
   const rawStatus = String(score?.status ?? "").trim();
   const status = rawStatus.toLowerCase();
@@ -694,6 +696,10 @@ export default function LeaderboardPage() {
 
   const countedPlayers = Math.max(1, Number(pool?.counted_players ?? 4));
   const rosterSize = Math.max(1, Number(pool?.roster_size ?? 6));
+  const cutAdjustedTotal = useMemo(
+    () => cutAdjustedTournamentTotal(uniqueScores),
+    [uniqueScores]
+  );
 
   const leaderboard = useMemo(() => {
     const golferMap = new Map<string, Golfer>(
@@ -800,15 +806,15 @@ export default function LeaderboardPage() {
                   }
                 : null);
 
-            const hasScore = hasLiveScoreValue(liveScore);
-            const tournamentTotal = liveTotalScore(liveScore);
+            const tournamentTotal = adjustedLiveTotalScore(
+              liveScore,
+              cutAdjustedTotal
+            );
+            const hasScore = tournamentTotal !== null;
+            const cutLabel = cutStatusLabel(liveScore);
 
             const total = tournamentTotal ?? 999;
-
-            const status = String(liveScore?.status ?? "").toLowerCase();
-            const position = String(liveScore?.position ?? "").toLowerCase();
-
-            const isCut = status.includes("cut") || position.includes("cut");
+            const isCut = cutLabel !== null;
 
             return {
               pick,
@@ -822,9 +828,11 @@ export default function LeaderboardPage() {
               liveScore,
               total,
               hasScore,
+              cutLabel,
               isCut,
-              isHot: hasScore && total <= -5,
-              isWarm: hasScore && total <= -3,
+              isCutAdjusted: isCut && cutAdjustedTotal !== null,
+              isHot: hasScore && !isCut && total <= -5,
+              isWarm: hasScore && !isCut && total <= -3,
             };
           })
           .sort((a, b) => a.total - b.total);
@@ -896,6 +904,7 @@ export default function LeaderboardPage() {
     golfers,
     playerPrices,
     uniqueScores,
+    cutAdjustedTotal,
     countedPlayers,
     previousRanks,
   ]);
@@ -927,7 +936,14 @@ export default function LeaderboardPage() {
   const entryFee = Number(pool?.entry_fee ?? 25);
   const totalPot = submitted * entryFee;
   const livePlayers = uniqueScores.length;
-  const topLiveScores = uniqueScores.slice(0, 25);
+  const topLiveScores = [...uniqueScores]
+    .sort((a, b) => {
+      const aScore = adjustedLiveTotalScore(a, cutAdjustedTotal) ?? 999;
+      const bScore = adjustedLiveTotalScore(b, cutAdjustedTotal) ?? 999;
+
+      return aScore - bScore;
+    })
+    .slice(0, 25);
   const picksVisible = isLocked;
   const displayRows = picksVisible
     ? leaderboard
@@ -1317,7 +1333,7 @@ export default function LeaderboardPage() {
                               const liveStatus = playerLiveStatus(
                                 player.liveScore,
                                 player.hasScore,
-                                player.isCut
+                                player.cutLabel
                               );
 
                               const displayName = playerDisplayName(
@@ -1401,6 +1417,11 @@ export default function LeaderboardPage() {
                                       Total
                                     </span>
                                     <span>{player.hasScore ? scoreText(player.total) : "—"}</span>
+                                    {player.isCutAdjusted ? (
+                                      <p className="mt-1 text-[11px] font-bold text-slate-500">
+                                        Cut • adjusted
+                                      </p>
+                                    ) : null}
                                   </div>
 
                                   <div className="flex items-center justify-between gap-3 rounded-2xl bg-black/20 px-3 py-2 sm:block sm:rounded-none sm:bg-transparent sm:px-0 sm:py-0">
@@ -1505,8 +1526,10 @@ export default function LeaderboardPage() {
                   </div>
                 ) : (
                   topLiveScores.map((score) => {
-                    const hasScore = hasLiveScoreValue(score);
-                    const total = liveTotalScore(score);
+                    const total = adjustedLiveTotalScore(score, cutAdjustedTotal);
+                    const hasScore = total !== null;
+                    const isCutAdjusted =
+                      cutStatusLabel(score) !== null && cutAdjustedTotal !== null;
 
                     return (
                       <div
@@ -1524,6 +1547,7 @@ export default function LeaderboardPage() {
 
                           <p className="mt-1 text-[11px] text-slate-500">
                             {dateText(score.updated_at)}
+                            {isCutAdjusted ? " • Cut adjusted" : ""}
                           </p>
                         </div>
 
